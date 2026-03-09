@@ -1,0 +1,40 @@
+version: '3.9'
+
+services:
+  # ── Application server ──────────────────────────────────────────────────────
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: autokinetics.settings.production
+    expose:
+      - "8000"
+    # Read-only filesystem – only /tmp is writable (security hardening)
+    read_only: true
+    tmpfs:
+      - /tmp
+    # Drop all capabilities, no new privileges
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/')\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── Nginx reverse proxy ─────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro   # mount your TLS certificates here
+    depends_on:
+      app:
+        condition: service_healthy

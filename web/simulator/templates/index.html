@@ -1,0 +1,579 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="description" content="AutoKinetics – browser-based chemical reaction kinetics simulator for researchers, educators and students."/>
+  <!-- CSP: only our own origin + CDN for Plotly/Tailwind -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self' https://cdn.tailwindcss.com https://cdn.plot.ly 'unsafe-inline'; style-src 'self' https://cdn.tailwindcss.com 'unsafe-inline'; img-src * data:; connect-src 'self';">
+  <title>AutoKinetics – Chemical Reaction Kinetics Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+  <style>
+    :root{--a:#6366f1;--a2:#818cf8;--bg:#0f172a;--s:#1e293b;--b:#334155;--t:#e2e8f0;--m:#94a3b8}
+    *{box-sizing:border-box}
+    body{background:var(--bg);color:var(--t);font-family:'Segoe UI',system-ui,sans-serif;margin:0;min-height:100vh}
+    ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-thumb{background:var(--b);border-radius:3px}
+    /* layout */
+    #layout{display:grid;grid-template-columns:370px 1fr;height:calc(100vh - 52px)}
+    #sidebar{overflow-y:auto;background:var(--s);border-right:1px solid var(--b)}
+    #main{overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+    /* header */
+    header{height:52px;background:var(--s);border-bottom:1px solid var(--b);display:flex;align-items:center;padding:0 18px;gap:10px}
+    .logo{font-size:1.15rem;font-weight:800;color:var(--a2);letter-spacing:-.5px}
+    .sub{font-size:.75rem;color:var(--m)}
+    /* sidebar */
+    .ss{padding:12px 14px;border-bottom:1px solid var(--b)}
+    .st{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--m);margin-bottom:9px}
+    /* form elements */
+    input,select{background:var(--bg);color:var(--t);border:1px solid var(--b);border-radius:5px;padding:5px 8px;font-size:.83rem;width:100%;transition:border-color .15s}
+    input:focus,select:focus{outline:none;border-color:var(--a)}
+    label{font-size:.78rem;color:var(--m);display:block;margin-bottom:2px}
+    /* buttons */
+    .btn{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:5px;font-size:.8rem;font-weight:600;cursor:pointer;border:none;transition:opacity .15s}
+    .btn:hover{opacity:.82}
+    .bp{background:var(--a);color:#fff}
+    .bg{background:transparent;color:var(--m);border:1px solid var(--b)}
+    .bd{background:#ef4444;color:#fff}
+    .bs{padding:3px 7px;font-size:.73rem}
+    .btn-run{width:100%;padding:11px;font-size:.95rem;background:var(--a);color:#fff;border:none;border-radius:7px;font-weight:700;cursor:pointer;transition:background .15s,transform .1s;display:flex;align-items:center;justify-content:center;gap:8px}
+    .btn-run:hover{background:var(--a2)}.btn-run:active{transform:scale(.98)}.btn-run:disabled{background:var(--b);cursor:not-allowed}
+    /* cards */
+    .card{background:var(--s);border:1px solid var(--b);border-radius:9px;padding:16px}
+    .ct{font-size:.78rem;font-weight:700;color:var(--a2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+    /* item cards */
+    .ic{background:var(--bg);border:1px solid var(--b);border-radius:7px;padding:9px 11px;margin-bottom:7px}
+    /* presets */
+    .pg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .pb{background:var(--bg);border:1px solid var(--b);border-radius:5px;padding:7px 5px;font-size:.72rem;color:var(--t);cursor:pointer;text-align:center;transition:border-color .15s,background .15s}
+    .pb:hover{border-color:var(--a);background:#1e1b4b}
+    .pe{font-size:1.05rem;display:block;margin-bottom:2px}
+    /* table */
+    table{width:100%;border-collapse:collapse;font-size:.8rem}
+    th{text-align:left;padding:5px 9px;color:var(--m);font-size:.7rem;text-transform:uppercase;border-bottom:1px solid var(--b)}
+    td{padding:6px 9px;border-bottom:1px solid #1e293b}
+    tr:last-child td{border-bottom:none}
+    .badge{display:inline-block;padding:2px 7px;border-radius:11px;font-size:.68rem;font-weight:700}
+    .b0{background:#1d4ed8;color:#bfdbfe}.b1{background:#065f46;color:#a7f3d0}.b2{background:#7c2d12;color:#fed7aa}
+    .r2b{height:4px;border-radius:2px;background:var(--b);margin-top:3px}
+    .r2f{height:100%;border-radius:2px;background:var(--a)}
+    /* equations */
+    .eq{background:var(--bg);border:1px solid var(--b);border-radius:5px;padding:11px 13px;font-family:'Courier New',monospace;font-size:.83rem;line-height:1.9;white-space:pre;overflow-x:auto;color:#a5f3fc}
+    /* toast */
+    #toast{position:fixed;bottom:18px;right:18px;background:#ef4444;color:#fff;padding:9px 16px;border-radius:7px;font-size:.82rem;font-weight:600;box-shadow:0 4px 20px #0008;display:none;z-index:9999;max-width:340px}
+    /* spinner */
+    .spin{width:16px;height:16px;border:2px solid #ffffff44;border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite}
+    @keyframes s{to{transform:rotate(360deg)}}
+    /* warning/info */
+    .warn{background:#451a03;border:1px solid #c2410c;border-radius:5px;padding:8px 10px;font-size:.78rem;color:#fdba74;margin-top:6px}
+    .info{background:#0c1a3a;border:1px solid var(--a);border-radius:5px;padding:8px 10px;font-size:.78rem;color:var(--a2);margin-top:6px}
+    /* responsive */
+    @media(max-width:780px){#layout{grid-template-columns:1fr}#sidebar{height:auto}}
+  </style>
+</head>
+<body>
+
+<header>
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2">
+    <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/>
+  </svg>
+  <span class="logo">AutoKinetics</span>
+  <span class="sub">Chemical Reaction Kinetics Simulator</span>
+</header>
+
+<div id="layout">
+  <!-- ══════ SIDEBAR ══════ -->
+  <aside id="sidebar">
+
+    <!-- Presets -->
+    <div class="ss">
+      <div class="st">Quick Examples</div>
+      <div class="pg" id="preset-grid"></div>
+    </div>
+
+    <!-- Species -->
+    <div class="ss">
+      <div class="st">Species</div>
+      <div id="species-list"></div>
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:5px;margin-top:5px">
+        <div><label>Name</label><input id="sp-name" placeholder="e.g. A" maxlength="50"/></div>
+        <div><label>C₀ (M)</label><input id="sp-c0" type="number" min="0" step="0.1" value="1.0"/></div>
+        <div style="display:flex;align-items:flex-end"><button class="btn bp bs" onclick="addSpecies()" style="width:100%">+ Add</button></div>
+      </div>
+      <label style="margin-top:7px;display:flex;align-items:center;gap:5px;cursor:pointer">
+        <input type="checkbox" id="sp-inter" style="width:auto"/>
+        <span style="font-size:.75rem;color:var(--m)">Reactive intermediate (QSSA)</span>
+      </label>
+    </div>
+
+    <!-- Reactions -->
+    <div class="ss">
+      <div class="st">Reactions</div>
+      <div id="reaction-list"></div>
+      <div style="background:var(--bg);border:1px solid var(--b);border-radius:7px;padding:9px;margin-top:5px">
+        <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:5px;align-items:end;margin-bottom:7px">
+          <div><label>Reactant(s)</label><select id="rx-r" multiple size="3" style="height:60px"></select></div>
+          <div style="padding-bottom:8px;color:var(--m);font-size:1.2rem">→</div>
+          <div><label>Product(s)</label><select id="rx-p" multiple size="3" style="height:60px"></select></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px">
+          <div><label>Rate label</label><input id="rx-label" value="k₁"/></div>
+          <div><label>A (pre-exp.)</label><input id="rx-A" type="number" value="1.0" step="any"/></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:7px">
+          <div><label>Eₐ (J mol⁻¹)</label><input id="rx-Ea" type="number" value="0" step="any"/></div>
+          <div><label>n (T-exponent)</label><input id="rx-n" type="number" value="0" step="any"/></div>
+        </div>
+        <button class="btn bp bs" onclick="addReaction()" style="width:100%">+ Add Reaction</button>
+      </div>
+    </div>
+
+    <!-- Sim parameters -->
+    <div class="ss">
+      <div class="st">Simulation Parameters</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px">
+        <div><label>Time span (s)</label><input id="sim-t" type="number" min="1e-6" step="any" value="100"/></div>
+        <div><label>Temperature (K)</label><input id="sim-T" type="number" min="1" max="20000" step="1" value="298"/></div>
+      </div>
+      <button class="btn-run" id="run-btn" onclick="runSim()">
+        <span id="run-icon">▶ Run Simulation</span>
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- ══════ MAIN ══════ -->
+  <main id="main">
+
+    <!-- Welcome -->
+    <div id="empty-state" class="card" style="text-align:center;padding:36px 18px">
+      <div style="font-size:2.8rem;margin-bottom:10px">⚗️</div>
+      <div style="font-size:1.05rem;font-weight:700;margin-bottom:7px">Welcome to AutoKinetics</div>
+      <div style="color:var(--m);max-width:420px;margin:0 auto;font-size:.88rem">
+        Select a <strong>Quick Example</strong> or build a custom reaction network.
+        The simulator solves the coupled ODE system using the <strong>Radau</strong> method
+        (rtol=10⁻⁷, atol=10⁻¹⁰) – suitable for stiff chemical kinetics.
+      </div>
+    </div>
+
+    <!-- Network -->
+    <div id="net-card" class="card" style="display:none">
+      <div class="ct">Reaction Network</div>
+      <svg id="net-svg" style="width:100%;min-height:90px"></svg>
+    </div>
+
+    <!-- Chart -->
+    <div id="chart-card" class="card" style="display:none">
+      <div class="ct">Concentration Profiles</div>
+      <div id="chart" style="height:360px"></div>
+      <div style="margin-top:9px;display:flex;gap:7px;justify-content:flex-end">
+        <button class="btn bg bs" onclick="dlCSV()">⬇ Export CSV</button>
+        <button class="btn bg bs" onclick="Plotly.downloadImage('chart',{format:'svg',filename:'autokinetics'})">⬇ Export SVG</button>
+      </div>
+    </div>
+
+    <!-- Equations -->
+    <div id="eq-card" class="card" style="display:none">
+      <div class="ct">Rate Law Equations (ODE System)</div>
+      <pre class="eq" id="eq-block"></pre>
+    </div>
+
+    <!-- Analysis -->
+    <div id="an-card" class="card" style="display:none">
+      <div class="ct">Kinetic Order Analysis</div>
+      <div id="an-body"></div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
+let species = [], reactions = [], lastResult = null;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Presets  (A values yield visible reaction over a reasonable time span)
+// ─────────────────────────────────────────────────────────────────────────────
+const PRESETS = [
+  { name:'A → B', icon:'1️⃣', desc:'Simple 1st-order decay',
+    species:[{name:'A',start_concentration:1},{name:'B',start_concentration:0}],
+    reactions:[{rate_label:'k₁',reactants:[[0,1]],products:[[1,1]],arrhenius_A:0.1,activation_energy_Ea:0,temperature_exponent_n:0}],
+    t_end:60,temperature:298 },
+  { name:'A→B→C', icon:'🔗', desc:'Consecutive reactions',
+    species:[{name:'A',start_concentration:1},{name:'B',start_concentration:0},{name:'C',start_concentration:0}],
+    reactions:[
+      {rate_label:'k₁',reactants:[[0,1]],products:[[1,1]],arrhenius_A:0.3,activation_energy_Ea:0,temperature_exponent_n:0},
+      {rate_label:'k₂',reactants:[[1,1]],products:[[2,1]],arrhenius_A:0.08,activation_energy_Ea:0,temperature_exponent_n:0}],
+    t_end:60,temperature:298 },
+  { name:'Competitive', icon:'⚔️', desc:'A → B and A → C',
+    species:[{name:'A',start_concentration:1},{name:'B',start_concentration:0},{name:'C',start_concentration:0}],
+    reactions:[
+      {rate_label:'k₁',reactants:[[0,1]],products:[[1,1]],arrhenius_A:0.2,activation_energy_Ea:0,temperature_exponent_n:0},
+      {rate_label:'k₂',reactants:[[0,1]],products:[[2,1]],arrhenius_A:0.05,activation_energy_Ea:0,temperature_exponent_n:0}],
+    t_end:40,temperature:298 },
+  { name:'2nd Order', icon:'2️⃣', desc:'2A → B (bimolecular)',
+    species:[{name:'A',start_concentration:2},{name:'B',start_concentration:0}],
+    reactions:[{rate_label:'k',reactants:[[0,1],[0,1]],products:[[1,1]],arrhenius_A:0.5,activation_energy_Ea:0,temperature_exponent_n:0}],
+    t_end:20,temperature:298 },
+  { name:'Arrhenius', icon:'🌡️', desc:'k(T) with activation energy',
+    species:[{name:'A',start_concentration:2},{name:'B',start_concentration:0}],
+    reactions:[{rate_label:'k',reactants:[[0,1]],products:[[1,1]],arrhenius_A:1e10,activation_energy_Ea:60000,temperature_exponent_n:0}],
+    t_end:300,temperature:450 },
+  { name:'Michaelis-Menten', icon:'🧬', desc:'Enzyme kinetics (QSSA)',
+    species:[
+      {name:'S',start_concentration:1},{name:'E',start_concentration:0.1},
+      {name:'ES',start_concentration:0,is_intermediate:true},{name:'P',start_concentration:0}],
+    reactions:[
+      {rate_label:'k₁', reactants:[[0,1],[1,1]],products:[[2,1]],arrhenius_A:10,activation_energy_Ea:0,temperature_exponent_n:0},
+      {rate_label:'k₋₁',reactants:[[2,1]],products:[[0,1],[1,1]],arrhenius_A:1, activation_energy_Ea:0,temperature_exponent_n:0},
+      {rate_label:'kcat',reactants:[[2,1]],products:[[1,1],[3,1]],arrhenius_A:2, activation_energy_Ea:0,temperature_exponent_n:0}],
+    t_end:10,temperature:310 },
+  { name:'Ozone Cycle', icon:'🌍', desc:'Stratospheric O₃ decomposition',
+    species:[{name:'O₃',start_concentration:0.001},{name:'O₂',start_concentration:0.21},{name:'O',start_concentration:0}],
+    reactions:[
+      {rate_label:'k₁',reactants:[[0,1]],products:[[1,1],[2,1]],arrhenius_A:5e-3,activation_energy_Ea:0,temperature_exponent_n:0},
+      {rate_label:'k₂',reactants:[[2,1],[1,1]],products:[[0,1]],arrhenius_A:1e-2,activation_energy_Ea:0,temperature_exponent_n:0}],
+    t_end:500,temperature:298 },
+  { name:'Autocatalytic', icon:'🔄', desc:'A + B → 2B (logistic growth)',
+    species:[{name:'A',start_concentration:1},{name:'B',start_concentration:0.01}],
+    reactions:[{rate_label:'k',reactants:[[0,1],[1,1]],products:[[1,2]],arrhenius_A:2,activation_energy_Ea:0,temperature_exponent_n:0}],
+    t_end:20,temperature:298 }
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Boot
+// ─────────────────────────────────────────────────────────────────────────────
+function init(){
+  renderPresets();
+  loadPreset(PRESETS[1]);  // A→B→C default
+}
+
+function renderPresets(){
+  document.getElementById('preset-grid').innerHTML =
+    PRESETS.map((p,i)=>`<button class="pb" onclick="loadPreset(PRESETS[${i}])" title="${p.desc}"><span class="pe">${p.icon}</span>${p.name}</button>`).join('');
+}
+
+function loadPreset(p){
+  species   = p.species.map(s=>({...s,is_intermediate:!!s.is_intermediate}));
+  reactions = p.reactions.map(r=>({...r}));
+  document.getElementById('sim-t').value = p.t_end;
+  document.getElementById('sim-T').value = p.temperature;
+  renderAll();
+  runSim();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Species
+// ─────────────────────────────────────────────────────────────────────────────
+function addSpecies(){
+  const name=document.getElementById('sp-name').value.trim();
+  const c0=parseFloat(document.getElementById('sp-c0').value)||0;
+  const inter=document.getElementById('sp-inter').checked;
+  if(!name) return toast('Species name is required');
+  if(species.find(s=>s.name===name)) return toast(`"${name}" already exists`);
+  species.push({name,start_concentration:c0,is_intermediate:inter});
+  document.getElementById('sp-name').value='';
+  document.getElementById('sp-inter').checked=false;
+  renderAll();
+}
+
+function removeSp(i){
+  reactions=reactions.filter(r=>!r.reactants.some(([x])=>x===i)&&!r.products.some(([x])=>x===i));
+  species.splice(i,1);
+  reactions.forEach(r=>{
+    r.reactants=r.reactants.map(([x,s])=>[x>i?x-1:x,s]);
+    r.products =r.products.map( ([x,s])=>[x>i?x-1:x,s]);
+  });
+  renderAll();
+}
+
+function editC0(i){
+  const v=prompt(`Initial concentration for ${species[i].name} (mol/L):`,species[i].start_concentration);
+  if(v===null) return;
+  const n=parseFloat(v);
+  if(isNaN(n)||n<0) return toast('Invalid concentration');
+  species[i].start_concentration=n;
+  renderAll();
+}
+
+function renderSpecies(){
+  const el=document.getElementById('species-list');
+  if(!species.length){el.innerHTML='<div style="color:var(--m);font-size:.78rem;text-align:center;padding:6px">No species yet</div>';return}
+  el.innerHTML=species.map((s,i)=>`
+    <div class="ic" style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <span style="font-weight:600;font-size:.88rem">${s.name}</span>
+        ${s.is_intermediate?'<span style="color:#f59e0b;font-size:.68rem;margin-left:5px">QSSA</span>':''}
+        <div style="font-size:.73rem;color:var(--m)">C₀ = ${s.start_concentration} M</div>
+      </div>
+      <div style="display:flex;gap:3px">
+        <button class="btn bg bs" onclick="editC0(${i})">✎</button>
+        <button class="btn bd bs" onclick="removeSp(${i})">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reactions
+// ─────────────────────────────────────────────────────────────────────────────
+function updateDropdowns(){
+  const opts=species.map((s,i)=>`<option value="${i}">${s.name}</option>`).join('');
+  document.getElementById('rx-r').innerHTML=opts;
+  document.getElementById('rx-p').innerHTML=opts;
+}
+
+function selOpts(id){return Array.from(document.getElementById(id).selectedOptions).map(o=>parseInt(o.value))}
+
+function addReaction(){
+  const ri=selOpts('rx-r'), pi=selOpts('rx-p');
+  if(!ri.length) return toast('Select at least one reactant');
+  if(!pi.length) return toast('Select at least one product');
+  const label=document.getElementById('rx-label').value.trim()||`k${reactions.length+1}`;
+  const A=parseFloat(document.getElementById('rx-A').value)||1;
+  const Ea=parseFloat(document.getElementById('rx-Ea').value)||0;
+  const n=parseFloat(document.getElementById('rx-n').value)||0;
+  reactions.push({
+    rate_label:label,
+    reactants:Object.entries(countArr(ri)).map(([i,s])=>[parseInt(i),s]),
+    products :Object.entries(countArr(pi)).map(([i,s])=>[parseInt(i),s]),
+    arrhenius_A:A,activation_energy_Ea:Ea,temperature_exponent_n:n
+  });
+  document.getElementById('rx-label').value=`k${toSub(reactions.length+1)}`;
+  renderAll();
+}
+
+function countArr(arr){const c={};arr.forEach(i=>{c[i]=(c[i]||0)+1});return c}
+
+function toSub(n){return String(n).replace(/[0-9]/g,d=>'₀₁₂₃₄₅₆₇₈₉'[d])}
+
+function removeRx(i){reactions.splice(i,1);renderAll()}
+
+function renderReactions(){
+  const el=document.getElementById('reaction-list');
+  if(!reactions.length){el.innerHTML='<div style="color:var(--m);font-size:.78rem;text-align:center;padding:6px">No reactions yet</div>';return}
+  el.innerHTML=reactions.map((r,i)=>{
+    const rs=r.reactants.map(([x,s])=>(s>1?`${s}`:'')+(species[x]?.name||'?')).join(' + ');
+    const ps=r.products.map( ([x,s])=>(s>1?`${s}`:'')+(species[x]?.name||'?')).join(' + ');
+    const kd=r.activation_energy_Ea>0?`A=${fmt(r.arrhenius_A)}, Eₐ=${fmt(r.activation_energy_Ea)} J/mol`:`A=${fmt(r.arrhenius_A)}`;
+    return `<div class="ic" style="display:flex;align-items:center;justify-content:space-between">
+      <div><span style="font-weight:600;font-size:.85rem">${r.rate_label}: ${rs} → ${ps}</span><div style="font-size:.72rem;color:var(--m)">${kd}</div></div>
+      <button class="btn bd bs" onclick="removeRx(${i})">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function fmt(n){
+  if(!isFinite(n)) return '∞';
+  if(Math.abs(n)>=1e4||(Math.abs(n)<0.01&&n!==0)) return n.toExponential(2);
+  return parseFloat(n.toPrecision(4)).toString();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Network diagram (SVG)
+// ─────────────────────────────────────────────────────────────────────────────
+function drawNetwork(){
+  const svg=document.getElementById('net-svg');
+  if(!species.length){svg.innerHTML='';return}
+  const order=bfsOrder();
+  const W=70,H=30,gap=36;
+  const pos={};
+  order.forEach((idx,col)=>{pos[idx]={x:col*(W+gap)+16,y:24}});
+  const tw=order.length*(W+gap)+16;
+  svg.setAttribute('viewBox',`0 0 ${tw} 72`);svg.setAttribute('height','72');
+  let h=`<defs><marker id="arr" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="#6366f1"/></marker></defs>`;
+  reactions.forEach(r=>{
+    r.reactants.forEach(([ri])=>{r.products.forEach(([pi])=>{
+      if(!pos[ri]||!pos[pi]) return;
+      const x1=pos[ri].x+W,y1=pos[ri].y+H/2,x2=pos[pi].x,y2=pos[pi].y+H/2;
+      h+=`<line x1="${x1}" y1="${y1}" x2="${x2-2}" y2="${y2}" stroke="#6366f1" stroke-width="1.5" marker-end="url(#arr)" opacity=".7"/>`;
+      h+=`<text x="${(x1+x2)/2}" y="${(y1+y2)/2-8}" text-anchor="middle" fill="#94a3b8" font-size="10">${r.rate_label}</text>`;
+    })});
+  });
+  order.forEach(idx=>{
+    const {x,y}=pos[idx],s=species[idx];
+    const fill=s.is_intermediate?'#451a03':'#1e1b4b',stroke=s.is_intermediate?'#f59e0b':'#6366f1';
+    h+=`<rect x="${x}" y="${y}" width="${W}" height="${H}" rx="7" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
+    h+=`<text x="${x+W/2}" y="${y+H/2+4}" text-anchor="middle" fill="${s.is_intermediate?'#fcd34d':'#e2e8f0'}" font-size="12" font-weight="600">${s.name}</text>`;
+  });
+  svg.innerHTML=h;
+}
+
+function bfsOrder(){
+  const produced=new Set(reactions.flatMap(r=>r.products.map(([i])=>i)));
+  const starts=species.map((_,i)=>i).filter(i=>!produced.has(i));
+  const vis=new Set(),ord=[];
+  function visit(idx){
+    if(vis.has(idx)) return;vis.add(idx);ord.push(idx);
+    reactions.forEach(r=>{if(r.reactants.some(([i])=>i===idx))r.products.forEach(([pi])=>visit(pi))});
+  }
+  starts.forEach(visit);
+  species.forEach((_,i)=>{if(!vis.has(i)){vis.add(i);ord.push(i)}});
+  return ord;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Simulation
+// ─────────────────────────────────────────────────────────────────────────────
+async function runSim(){
+  if(!species.length||!reactions.length) return toast('Add at least one species and one reaction');
+  setRunning(true);
+  const body={
+    species,reactions,
+    temperature:parseFloat(document.getElementById('sim-T').value)||298.15,
+    t_end:parseFloat(document.getElementById('sim-t').value)||100,
+    n_points:500
+  };
+  try{
+    const r=await fetch('/api/simulate/',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-CSRFToken':getCsrf()},
+      body:JSON.stringify(body)
+    });
+    if(r.status===429){toast('Rate limit reached. Please wait a moment and try again.');return}
+    const data=await r.json();
+    if(!r.ok){
+      const msg=data.detail||(data.errors?JSON.stringify(data.errors):'Unknown error');
+      return toast('Error: '+msg);
+    }
+    lastResult=data;
+    document.getElementById('empty-state').style.display='none';
+    renderChart(data);renderEquations(data.rate_equations);renderAnalysis(data.analysis);
+  }catch(e){
+    toast('Network error: '+e.message);
+  }finally{
+    setRunning(false);
+  }
+}
+
+function getCsrf(){
+  const m=document.cookie.match(/csrftoken=([^;]+)/);
+  return m?m[1]:'';
+}
+
+function setRunning(on){
+  const btn=document.getElementById('run-btn');
+  btn.disabled=on;
+  document.getElementById('run-icon').innerHTML=on
+    ?'<div class="spin"></div> Simulating…':'▶ Run Simulation';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chart (Plotly.js)
+// ─────────────────────────────────────────────────────────────────────────────
+const CLR=['#6366f1','#34d399','#f59e0b','#f87171','#60a5fa','#a78bfa','#fb923c','#4ade80'];
+
+function renderChart(d){
+  const traces=d.species_names.map((name,i)=>({
+    x:d.time,y:d.concentrations[name],name,type:'scatter',mode:'lines',
+    line:{color:CLR[i%CLR.length],width:2.5},
+    hovertemplate:`<b>${name}</b><br>t = %{x:.4g} s<br>[${name}] = %{y:.5g} M<extra></extra>`
+  }));
+  Plotly.react('chart',traces,{
+    paper_bgcolor:'transparent',plot_bgcolor:'#0f172a',
+    font:{color:'#e2e8f0',family:'Segoe UI,system-ui,sans-serif',size:12},
+    xaxis:{title:'Time (s)',gridcolor:'#1e293b',linecolor:'#334155'},
+    yaxis:{title:'Concentration (mol L⁻¹)',gridcolor:'#1e293b',linecolor:'#334155',rangemode:'tozero'},
+    legend:{bgcolor:'transparent',bordercolor:'#334155',borderwidth:1},
+    margin:{l:64,r:20,t:10,b:50},
+    hovermode:'x unified'
+  },{responsive:true,displaylogo:false,
+     modeBarButtonsToRemove:['sendDataToCloud','editInChartStudio']});
+  show('chart-card');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Equations
+// ─────────────────────────────────────────────────────────────────────────────
+function renderEquations(eqs){
+  document.getElementById('eq-block').textContent=eqs;
+  show('eq-card');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Analysis
+// ─────────────────────────────────────────────────────────────────────────────
+const BC={'0th Order':'b0','1st Order':'b1','2nd Order':'b2'};
+
+function renderAnalysis(analysis){
+  const entries=Object.entries(analysis);
+  const body=document.getElementById('an-body');
+  if(!entries.length){body.innerHTML='<p style="color:var(--m)">No analysis data.</p>';return}
+
+  body.innerHTML=`
+    <table>
+      <thead><tr><th>Reaction</th><th>Species</th><th>Best Order</th><th>R²</th><th>k</th><th>Unit</th><th>Fits well?</th></tr></thead>
+      <tbody>
+        ${entries.map(([lbl,info])=>{
+          const r2=info.r_squared, bc=BC[info.best_fit_order]||'';
+          const fw=info.fits_well;
+          return `<tr>
+            <td><strong>${lbl}</strong></td>
+            <td>[${info.analyzed_reactant}]</td>
+            <td><span class="badge ${bc}">${info.best_fit_order}</span></td>
+            <td>${r2.toFixed(4)}<div class="r2b"><div class="r2f" style="width:${Math.round(r2*100)}%"></div></div></td>
+            <td>${fmt(info.calculated_k)}</td>
+            <td style="color:var(--m)">${info.k_unit}</td>
+            <td>${fw?'<span style="color:#34d399">✓ yes</span>':'<span style="color:#f87171">✗ no</span>'}</td>
+          </tr>`;
+        }).join('')}
+      </tbody>
+    </table>
+
+    ${entries.map(([lbl,info])=>{
+      const hl=info.half_life_s!=null
+        ?`<div class="info">⏱ t<sub>½</sub> = ${fmt(info.half_life_s)} s &nbsp;|&nbsp; τ = ${fmt(info.characteristic_time_s)} s</div>`:'';
+      return `<div style="margin-top:14px">
+        <div style="font-size:.75rem;font-weight:700;color:var(--m);margin-bottom:5px">${lbl} — all fits</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px">
+          ${Object.entries(info.all_fits).map(([ord,fit])=>`
+            <div style="background:var(--bg);border:1px solid var(--b);border-radius:5px;padding:7px">
+              <div style="font-size:.72rem;font-weight:700;color:var(--m)">${ord}</div>
+              <div>R² = <strong>${fit.r_squared.toFixed(4)}</strong></div>
+              <div style="font-size:.75rem;color:var(--m)">k = ${fmt(fit.k)} ${fit.unit}</div>
+            </div>`).join('')}
+        </div>${hl}
+        ${!info.fits_well?'<div class="warn">⚠ R² < 0.98 for best fit. Reaction may not follow a simple single-order mechanism, or the simulation window is too long.</div>':''}
+      </div>`;
+    }).join('')}
+  `;
+  show('an-card');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CSV Export
+// ─────────────────────────────────────────────────────────────────────────────
+function dlCSV(){
+  if(!lastResult) return;
+  const names=lastResult.species_names;
+  const rows=[['time_s',...names].join(',')];
+  lastResult.time.forEach((t,i)=>{rows.push([t,...names.map(n=>lastResult.concentrations[n][i])].join(','))});
+  const a=Object.assign(document.createElement('a'),{
+    href:URL.createObjectURL(new Blob([rows.join('\n')],{type:'text/csv'})),
+    download:'autokinetics_results.csv'
+  });
+  a.click();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+function renderAll(){renderSpecies();renderReactions();updateDropdowns();drawNetwork();show('net-card')}
+
+function show(id){document.getElementById(id).style.display=''}
+
+let _toastTO;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.style.display='block';
+  clearTimeout(_toastTO);_toastTO=setTimeout(()=>{t.style.display='none'},5000);
+}
+
+init();
+</script>
+</body>
+</html>
