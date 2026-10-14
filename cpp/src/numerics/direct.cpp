@@ -329,16 +329,25 @@ double cond_inf(const Matrix& A) {
 
 double cond_2(const Matrix& A) {
     require_square(A, "cond_2");
-    const Matrix AtA = matmul(transpose(A), A);
-    EigenResult e = eigenvalues(AtA, true);
+    // Singular values are the moduli of the eigenvalues of the symmetric matrix
+    // [[0, A], [A^T, 0]] (+-sigma_i). Unlike A^T A this does not square kappa.
+    const std::size_t n = A.rows;
+    Matrix S(2 * n, 2 * n);
+    for (std::size_t i = 0; i < n; ++i)
+        for (std::size_t j = 0; j < n; ++j) {
+            S(i, n + j) = A(i, j);
+            S(n + j, i) = A(i, j);
+        }
+    EigenResult e = eigenvalues(S, true);
     if (!e.ok) throw std::runtime_error("cond_2: eigenvalue iteration failed: " + e.message);
     double lmax = 0.0, lmin = std::numeric_limits<double>::infinity();
-    for (double v : e.re) {
-        lmax = std::max(lmax, std::abs(v));
-        lmin = std::min(lmin, std::abs(v));
+    for (std::size_t i = 0; i < e.re.size(); ++i) {
+        const double sigma = std::hypot(e.re[i], e.im[i]);
+        lmax = std::max(lmax, sigma);
+        lmin = std::min(lmin, sigma);
     }
     if (lmin == 0.0) return std::numeric_limits<double>::infinity();
-    return std::sqrt(lmax / lmin);
+    return lmax / lmin;
 }
 
 }  // namespace ak::num

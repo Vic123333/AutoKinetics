@@ -764,8 +764,11 @@ Result integrate(OdeSystem& system, const Method& method, double t0, double tf, 
                 return finish(Status::StepSizeTooSmall,
                               "step size " + std::to_string(h) + " below minimum at t = " + std::to_string(t) +
                                   (stepper->failure().empty() ? "" : " (last failure: " + stepper->failure() + ")"));
-            if (t + 1.01 * h >= tf) h = tf - t;
-            t_new = (t + h >= tf) ? tf : t + h;
+            // Land exactly on the end point (and, if requested, on the next output time).
+            double t_stop = tf;
+            if (opt.exact_t_eval && next_out < opt.t_eval.size()) t_stop = std::min(t_stop, opt.t_eval[next_out]);
+            if (t + 1.01 * h >= t_stop) h = t_stop - t;
+            t_new = (t + h >= t_stop) ? t_stop : t + h;
         } else {
             t_new = (st.n_accepted + 1 >= n_fixed) ? tf : t0 + static_cast<double>(st.n_accepted + 1) * h;
         }

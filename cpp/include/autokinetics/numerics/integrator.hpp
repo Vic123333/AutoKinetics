@@ -65,6 +65,7 @@ struct Options {
     long max_steps = 100000;
     double max_wall_time = 0.0;       // seconds; 0: unlimited
     std::vector<double> t_eval;       // output times (sorted, within [t0, tf]); empty: every step
+    bool exact_t_eval = false;        // adaptive mode: steps land exactly on t_eval (no interpolation)
     bool nonnegative = false;         // enforce the system's nonnegative_mask()
 
     NonlinearSolverKind nonlinear = NonlinearSolverKind::SimplifiedNewton;
