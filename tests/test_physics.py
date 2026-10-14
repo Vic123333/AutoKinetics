@@ -23,7 +23,7 @@ reactions: %s
 
 
 def liquid(species, reactions):
-    sp = "[" + ", ".join("{name: %s}" % s for s in species) + "]"
+    sp = "[" + ", ".join("{name: " + s + "}" for s in species) + "]"
     return load_mechanism(LIQ % ("[" + ", ".join(species) + "]", sp, reactions))
 
 
