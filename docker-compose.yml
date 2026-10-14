@@ -1,0 +1,15 @@
+services:
+  autokinetics:
+    build: .
+    image: autokinetics:2.0.0
+    ports:
+      - "8000:8000"
+    environment:
+      AUTOKINETICS_WORKERS: "4"
+      AUTOKINETICS_MAX_WALL_TIME: "180"
+      # AUTOKINETICS_OFFLINE: "1"   # no PubChem/NIST requests (NASA database only)
+    volumes:
+      - cache:/home/autokinetics/.cache/autokinetics
+    restart: unless-stopped
+volumes:
+  cache:

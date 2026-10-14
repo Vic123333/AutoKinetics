@@ -1,0 +1,11 @@
+.git
+.venv
+.claude
+build
+**/__pycache__
+**/*.so
+src/autokinetics/_ext/_core.cpp
+src/autokinetics/static
+frontend/node_modules
+frontend/test-results
+frontend/playwright-report
