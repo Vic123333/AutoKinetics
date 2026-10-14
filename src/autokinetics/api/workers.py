@@ -153,8 +153,13 @@ def job_numerics(req: dict, limits: dict) -> dict:
     spec = reactor_spec_from_dict(req["reactor"], mech)
     opts = _sim_options(req["simulation"], limits)
     built = build_reactor(mech, spec, opts.rtol, opts.atol_rel)
-    kwargs: dict[str, Any] = dict(rtol=opts.rtol, atol=built.atol, budget_s=min(req.get("budget_s", 20.0),
-                                                                               limits["max_wall_time"]))
+    # The analysis targets a *global* accuracy; the tuner chooses method and local tolerance.
+    target = float(req.get("target_rtol", 1e-4))
+    atol = built.atol * (target / opts.rtol) if opts.rtol > 0 else built.atol
+    if built.energy:
+        atol[-1] = max(1e-6, target * 1e-2)
+    kwargs: dict[str, Any] = dict(rtol=target, atol=atol, budget_s=min(req.get("budget_s", 20.0),
+                                                                     limits["max_wall_time"]))
     if req.get("candidates"):
         kwargs["candidates"] = req["candidates"]
     if spec.kind == "batch" and not spec.fixed_species and mech.elements and all(s.composition for s in mech.species):

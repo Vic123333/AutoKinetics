@@ -22,7 +22,7 @@ export function defaultReactor(phase: Phase): ReactorForm {
 
 export function defaultSimulation(): SimForm {
   return {
-    t_end: 100, t_unit: "s", method: "scipy:BDF", rtol: 1e-6, atol_rel: 1e-12, log_time: false,
+    t_end: 100, t_unit: "s", method: "radau5", rtol: 1e-6, atol_rel: 1e-12, log_time: false,
     linear_solver: "lu_pivot", nonlinear_solver: "simplified_newton", fixed_step: null, max_points: 1500,
   };
 }

@@ -95,4 +95,5 @@ class NumericsRequest(BaseModel):
     reactor: dict[str, Any]
     simulation: dict[str, Any]
     budget_s: float = Field(default=20.0, gt=0, le=300)
+    target_rtol: float = Field(default=1e-4, gt=1e-12, lt=0.1)
     candidates: list[str] | None = None

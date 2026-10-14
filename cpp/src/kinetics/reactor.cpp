@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 namespace ak {
@@ -78,8 +79,12 @@ void ReactorSystem::rhs(double t, const double* y, double* dydt) {
 void ReactorSystem::eval(double t, const double* y, double* dydt) {
     double T, P, V;
     observe(t, y, c_.data(), &T, &P, &V);
-    if (!(T > 0.0) || !std::isfinite(T)) throw std::domain_error("non-physical temperature in reactor state");
-    if (cfg_.constraint == CONST_PRESSURE && !(V > 0.0)) throw std::domain_error("non-positive reactor volume");
+    // A trial state of an integrator step can be non-physical (T <= 0, V <= 0). Signal it with
+    // NaN derivatives: adaptive integrators reject such steps and retry with a smaller h.
+    if (!(T > 0.0) || !std::isfinite(T) || (cfg_.constraint == CONST_PRESSURE && !(V > 0.0))) {
+        std::fill(dydt, dydt + n_state_, std::numeric_limits<double>::quiet_NaN());
+        return;
+    }
     kin_->production_rates(T, P, c_.data(), wdot_.data(), q_.data());
     const bool gas = kin_->phase() == PHASE_GAS;
     if (cfg_.constraint == CONST_PRESSURE) {

@@ -186,7 +186,7 @@ class _Tuner:
 
     # ------------------------------------------------------------------ reference
     def reference(self) -> dict:
-        self.rtol_ref = float(min(max(self.rtol * 1e-3, 1e-12), 1e-8))
+        self.rtol_ref = float(min(max(self.rtol * 1e-4, 1e-12), 1e-8))
         self.atol_ref = self.atol_vec * 1e-3
         cap = max(0.3 * self.budget.total, 0.05)
         ref = integrate(
@@ -510,6 +510,16 @@ class _Tuner:
                     "(Ordnungsreduktion bei steifen Problemen bzw. vorasymptotischer Bereich), "
                     "Verfahren aber konsistent."
                 )
+            elif (entry.get("algebraic_order") or 0) >= 1:
+                # Algebraically consistent (order conditions hold), so a small/negative empirical
+                # order only means the step sizes are not in the asymptotic range: for stiff
+                # problems with h·|λ| ≫ 1 the local error is not O(h^(p+1)) (order reduction).
+                verdict = None
+                emp_text = (
+                    f"Empirische Ordnung {local_order:.2f} nicht aussagekräftig: Schrittweiten außerhalb des "
+                    "asymptotischen Bereichs (h·|λ| ≫ 1, Ordnungsreduktion bei steifen Problemen). "
+                    "Konsistenz folgt aus den erfüllten Ordnungsbedingungen."
+                )
             else:
                 verdict = False
                 emp_text = f"Empirische Konsistenzordnung {local_order:.2f} < {MIN_CONSISTENT_ORDER}: nicht konsistent."
@@ -545,11 +555,14 @@ class _Tuner:
         return consistency, convergence
 
     # ------------------------------------------------------------------ benchmark
-    def _run(self, method: str, nonlinear: str, linear: str, cap: float) -> dict:
+    def _run(self, method: str, nonlinear: str, linear: str, cap: float,
+             rtol: float | None = None, atol=None) -> dict:
+        rtol = self.rtol if rtol is None else rtol
+        atol = self.atol if atol is None else atol
         opts = {
             "method": method,
-            "rtol": self.rtol,
-            "atol": self.atol,
+            "rtol": rtol,
+            "atol": atol,
             "linear_solver": linear,
             "nonlinear_solver": nonlinear,
         }
@@ -558,8 +571,8 @@ class _Tuner:
             (self.t0, self.pilot_tf),
             self.y0,
             method,
-            rtol=self.rtol,
-            atol=self.atol,
+            rtol=rtol,
+            atol=atol,
             linear_solver=linear,
             nonlinear_solver=nonlinear,
             t_eval=self.t_check,
@@ -575,8 +588,8 @@ class _Tuner:
                     (self.t0, self.pilot_tf),
                     self.y0,
                     method,
-                    rtol=self.rtol,
-                    atol=self.atol,
+                    rtol=rtol,
+                    atol=atol,
                     linear_solver=linear,
                     nonlinear_solver=nonlinear,
                     t_eval=self.t_check,
@@ -681,6 +694,49 @@ class _Tuner:
             rows.append(self._run(m, nl, ls, cap))
         return rows
 
+    def tolerance_adjustment(self, rows: list[dict]) -> list[dict]:
+        """Global errors may exceed the local tolerance by orders of magnitude (error
+        amplification, e.g. in ignition or oscillations). For the fastest configurations
+        that are correct in every other respect but miss the accuracy target, the
+        tolerance is tightened using tolerance proportionality (error ∝ tol) and the run
+        repeated – the optimisation is over (method, tolerance) pairs."""
+        out: list[dict] = []
+        fixable = sorted(
+            (r for r in rows if r["success"] and not r["meets_target"] and r["invariants_ok"]
+             and r["nonnegative_ok"] and r["consistent"] is not False and r["error"] is not None
+             and np.isfinite(r["error"])),
+            key=lambda r: r["wall_time"],
+        )[:4]
+        floor = 3.0 * self.rtol_ref
+        for r in fixable:
+            row = r
+            for _ in range(3):
+                if not self.budget.has(max(4 * row["wall_time"], 0.05)):
+                    self.skip("toleranzanpassung", r["method"], "Zeitbudget ausgeschöpft.")
+                    break
+                factor = min(1.0, 0.3 * ERROR_TARGET_FACTOR / row["error"])
+                rtol_new = max(row["options"]["rtol"] * factor, floor)
+                if rtol_new >= row["options"]["rtol"] * 0.999:
+                    self.skip("toleranzanpassung", r["method"],
+                              "Toleranz bereits an der Genauigkeitsgrenze der Referenzlösung.")
+                    break
+                atol_new = np.asarray(row["options"]["atol"], dtype=float) * (rtol_new / row["options"]["rtol"])
+                cap = max(min(0.4 * self.budget.remaining, 50 * max(row["wall_time"], 1e-3)), 0.05)
+                row = self._run(r["method"], r["nonlinear_solver"], r["linear_solver"], cap,
+                                rtol=rtol_new, atol=atol_new)
+                row["tolerance_adjusted"] = True
+                row["reasoning_de"] = (f"Toleranz auf rtol = {_fmt(rtol_new)} verschärft (globaler Fehler bei "
+                                       f"rtol = {_fmt(self.rtol)} zu groß). " + row["reasoning_de"])
+                out.append(row)
+                if row["valid"] or not row["success"]:
+                    break
+        if out:
+            self.reasoning.append(
+                f"Toleranzanpassung: {len(out)} Läufe mit verschärfter Toleranz, davon "
+                f"{sum(r['valid'] for r in out)} gültig – das Verfahren wird zusammen mit der nötigen "
+                "Toleranz gewählt (globale Fehlerverstärkung).")
+        return out
+
     def solver_variants(self, rows: list[dict]) -> list[dict]:
         out = []
         good = sorted(
@@ -746,7 +802,7 @@ class _Tuner:
                     )
                     continue
                 cap = max(min(self.budget.remaining * 0.25, 10 * base["wall_time"] + 0.05), 0.05)
-                out.append(self._run(m, nl, ls, cap))
+                out.append(self._run(m, nl, ls, cap, rtol=base["options"]["rtol"], atol=base["options"]["atol"]))
         return out
 
     def tolerance_sweeps(self, rows: list[dict]) -> dict:
@@ -919,6 +975,7 @@ def auto_optimize(
         stability = tuner.stability()
         consistency, convergence = tuner.consistency_and_convergence()
         rows = tuner.benchmark()
+        rows += tuner.tolerance_adjustment(rows)
         rows += tuner.solver_variants(rows)
         sweeps = tuner.tolerance_sweeps(rows)
         for m, sweep in sweeps.items():

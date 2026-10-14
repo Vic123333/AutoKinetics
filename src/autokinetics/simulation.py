@@ -14,7 +14,7 @@ from .errors import SimulationError
 from .mechanism import Mechanism
 from .reactor import BuiltReactor, ReactorSpec, build_reactor
 
-DEFAULT_METHOD = "scipy:BDF"
+DEFAULT_METHOD = "radau5"
 
 
 @dataclass
