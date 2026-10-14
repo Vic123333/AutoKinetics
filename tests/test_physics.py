@@ -322,9 +322,9 @@ def test_library_expected_values():
             elif e["quantity"] == "conversion":
                 v = r.metrics["conversion"][sp]
             elif e["quantity"] == "max_time":
-                v = float(r.t[np.argmax(r.species(sp))])
+                v = r.metrics["maxima"][sp]["t"]
             elif e["quantity"] == "max_value":
-                v = float(r.species(sp).max()) / 1e3
+                v = r.metrics["maxima"][sp]["value"] / 1e3
             elif e["quantity"] == "final_value":
                 v = float(r.species(sp)[-1]) / 1e3
             else:

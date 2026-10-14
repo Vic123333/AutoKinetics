@@ -14,7 +14,15 @@ from .errors import SimulationError
 from .mechanism import Mechanism
 from .reactor import BuiltReactor, ReactorSpec, build_reactor
 
-DEFAULT_METHOD = "radau5"
+DEFAULT_METHOD = "auto"
+AUTO_DENSE_LIMIT = 40  # radau5 factorises the dense 3n x 3n stage system; beyond this BDF is cheaper
+
+
+def resolve_method(method: str, n_state: int) -> str:
+    """'auto': C++ Radau IIA (order 5) for small systems, SciPy BDF for large ones."""
+    if method != "auto":
+        return method
+    return "radau5" if n_state <= AUTO_DENSE_LIMIT else "scipy:BDF"
 
 
 @dataclass
@@ -88,7 +96,8 @@ class SimulationResult:
             "stats": self.stats,
             "wall_time": self.wall_time,
             "diagnostics": self.diagnostics,
-            "metrics": self.metrics,
+            "metrics": {**self.metrics, "maxima": {k: {"t": v["t"], "value": v["value"] * factor}
+                                                   for k, v in self.metrics.get("maxima", {}).items()}},
             "method": self.options.method,
         }
         if self.mechanism.phase == "ideal-gas":
@@ -104,7 +113,11 @@ def _integrate(built: BuiltReactor, opts: SimulationOptions, t_eval: np.ndarray 
             from .numerics import integrate as num_integrate
         except ImportError as e:  # pragma: no cover - numerics package missing
             raise SimulationError(f"Löser '{opts.method}' nicht verfügbar: {e}") from None
+        # With prescribed output times the steps land exactly on them: Hermite dense output
+        # would limit the accuracy of high-order methods taking large steps to O(h^4).
         kwargs = dict(method=opts.method, rtol=opts.rtol, atol=built.atol, t_eval=t_eval,
+                      t_eval_exact=t_eval is not None,
+                      max_wall_time=opts.max_wall_time,
                       linear_solver=opts.linear_solver, nonlinear_solver=opts.nonlinear_solver)
         if opts.fixed_step:
             kwargs["fixed_step"] = opts.fixed_step
@@ -247,6 +260,26 @@ def _metrics(mech: Mechanism, spec: ReactorSpec, t: np.ndarray, C: np.ndarray, T
                 half[s.name] = _crossing_time(t, n[:, i], 0.5 * n0, int(below[0]))
     m["conversion"] = conv
     m["half_life"] = half
+    # interior maxima of intermediates (start at ~0, peak, decay), located by parabolic
+    # interpolation through the three output points around the discrete maximum
+    maxima = {}
+    for i, s in enumerate(mech.species):
+        y = C[:, i]
+        k = int(np.argmax(y))
+        if 0 < k < len(t) - 1 and y[k] > 1.01 * max(y[0], y[-1]) and y[k] > 0:
+            t0_, t1_, t2_ = t[k - 1], t[k], t[k + 1]
+            y0_, y1_, y2_ = y[k - 1], y[k], y[k + 1]
+            denom = (t0_ - t1_) * (t0_ - t2_) * (t1_ - t2_)
+            a = (t2_ * (y1_ - y0_) + t1_ * (y0_ - y2_) + t0_ * (y2_ - y1_)) / denom
+            b = (t2_**2 * (y0_ - y1_) + t1_**2 * (y2_ - y0_) + t0_**2 * (y1_ - y2_)) / denom
+            if a < 0:
+                tv = -b / (2 * a)
+                if t0_ <= tv <= t2_:
+                    c = y1_ - a * t1_**2 - b * t1_
+                    maxima[s.name] = {"t": float(tv), "value": float(a * tv**2 + b * tv + c)}
+                    continue
+            maxima[s.name] = {"t": float(t1_), "value": float(y1_)}
+    m["maxima"] = maxima
     if spec.energy != "isothermal" and len(t) > 2:
         dTdt = np.gradient(T, t)
         k = int(np.argmax(dTdt))
@@ -264,12 +297,29 @@ def simulate(mech: Mechanism, spec: ReactorSpec, options: SimulationOptions,
     options.validate()
     t0 = time.perf_counter()
     built = built or build_reactor(mech, spec, options.rtol, options.atol_rel)
+    if options.method == "auto":
+        options = copy.copy(options)
+        options.method = resolve_method("auto", len(built.y0))
     t_eval = options.t_eval
     if t_eval is None and options.log_time:
         t_first = options.t_end * 1e-9
         t_eval = np.concatenate([[0.0], np.geomspace(t_first, options.t_end, options.max_points - 1)])
     try:
         t, y, ok, msg, stats = _integrate_piecewise(built, options, t_eval)
+        if (t_eval is None and ok and not options.method.startswith("scipy:")
+                and len(t) < options.max_points // 2):
+            # High-order methods take few, large steps. For smooth curves add evenly spaced
+            # output points; steps land exactly on them, so every point has full accuracy
+            # (Hermite dense output would only be O(h^4)).
+            n_extra = min(options.max_points - len(t), 400)
+            grid = (np.geomspace(max(t[1], options.t_end * 1e-9), options.t_end, n_extra)
+                    if options.log_time and len(t) > 1 else np.linspace(0.0, options.t_end, n_extra))
+            dense_eval = np.unique(np.concatenate([np.asarray(t), grid]))
+            dense_opts = copy.copy(options)
+            dense_opts.t_eval = dense_eval
+            t2, y2, ok2, msg2, stats2 = _integrate_piecewise(built, dense_opts, dense_eval)
+            if ok2:
+                t, y, msg, stats = t2, y2, msg2, stats2
     except (ValueError, RuntimeError, ArithmeticError) as e:
         raise SimulationError(f"Integration fehlgeschlagen: {e}") from None
     if len(t) == 0:

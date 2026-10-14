@@ -121,6 +121,7 @@ export interface SimulationResult {
     T_final?: number;
     T_rise?: number;
     max_dTdt?: number;
+    maxima?: Record<string, { t: number; value: number }>;
   };
   method: string;
   heat_release_rate?: number[];

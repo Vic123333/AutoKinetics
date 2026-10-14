@@ -161,6 +161,7 @@ function Metrics({ r }: { r: SimulationResult }) {
   if (r.metrics.T_final !== undefined) tiles.push({ label: "Endtemperatur", value: `${fmtNum(r.metrics.T_final, 5)} K`, note: `ΔT = ${fmtNum(r.metrics.T_rise ?? 0, 4)} K` });
   for (const [s, v] of Object.entries(r.metrics.half_life ?? {}).slice(0, 4)) tiles.push({ label: `Halbwertszeit ${s}`, value: fmtTime(v) });
   for (const [s, v] of Object.entries(r.metrics.conversion ?? {}).slice(0, 4)) tiles.push({ label: `Umsatz ${s}`, value: `${fmtNum(v * 100, 4)} %` });
+  for (const [s, v] of Object.entries(r.metrics.maxima ?? {}).slice(0, 3)) tiles.push({ label: `Maximum ${s}`, value: `${fmtNum(v.value, 4)} ${r.concentration_unit}`, note: `bei t = ${fmtTime(v.t)}` });
   return (
     <div className="stack">
       <div className="tiles">

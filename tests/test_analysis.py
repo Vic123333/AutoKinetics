@@ -39,7 +39,12 @@ def test_parameter_estimation_recovers_rate_constant(saponification):
     true_A = mech.reactions[0].rate.A
     rng = np.random.default_rng(0)
     t = np.linspace(60, 3000, 15)
-    c = np.interp(t, r.t, r.species("CH3COOC2H5")) * (1 + 0.01 * rng.standard_normal(t.size))
+    import copy
+
+    exact = copy.copy(opts)
+    exact.t_eval = np.concatenate([[0.0], t])
+    c_true = simulate(mech, spec, exact).species("CH3COOC2H5")[1:]
+    c = c_true * (1 + 0.01 * rng.standard_normal(t.size))
     wrong, _, _ = load_example("saponification")
     wrong.reactions[0].rate.A *= 3.0
     est = analysis.estimate_parameters(wrong, spec, opts, [{"species": "CH3COOC2H5", "t": t, "c": c}],

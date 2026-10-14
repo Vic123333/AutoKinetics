@@ -26,6 +26,12 @@ def rates_of_production(result: SimulationResult, species: str, top: int = 10) -
 
     mech = result.mechanism
     i = mech.species_index(species)
+    if result.options.t_eval is None:
+        # integrate the contributions on a refined grid (the solver's own steps can be coarse)
+        opts = copy.copy(result.options)
+        opts.t_eval = np.unique(np.concatenate([result.t, np.linspace(0.0, opts.t_end, 801)]))
+        opts.max_points = len(opts.t_eval)
+        result = simulate(mech, result.spec, opts)
     km = KineticsModel(compile_mechanism(mech))
     nr, np_ = mech.stoichiometric_matrices()
     nu_i = (np_ - nr)[:, i]
