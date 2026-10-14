@@ -62,15 +62,21 @@ export function NetworkView({ ctx }: { ctx: AppContext }) {
     const ns = nodes.map((n) => ({ ...n }));
     const ls = links.map((l) => ({ ...l }));
     const sim = forceSimulation<Node>(ns)
-      .force("link", forceLink<Node, Link>(ls).id((d) => d.id).distance(aggregated ? 90 : 55).strength(aggregated ? 0.25 : 0.7))
-      .force("charge", forceManyBody().strength(aggregated ? -320 : -160))
-      .force("collide", forceCollide<Node>((d) => (d.kind === "species" ? 26 : 8)))
+      .force("link", forceLink<Node, Link>(ls).id((d) => d.id).distance(aggregated ? 90 : 70).strength(aggregated ? 0.25 : 0.6))
+      .force("charge", forceManyBody().strength(aggregated ? -320 : -380))
+      .force("collide", forceCollide<Node>((d) => (d.kind === "species" ? 34 : 12)))
       .force("x", forceX(W / 2).strength(0.04))
       .force("y", forceY(H / 2).strength(0.06))
       .stop();
     for (let i = 0; i < 300; i++) sim.tick();
     simRef.current = sim;
-    setPositions(new Map(ns.map((n) => [n.id, { x: Math.max(20, Math.min(W - 20, n.x ?? 0)), y: Math.max(20, Math.min(H - 20, n.y ?? 0)) }])));
+    // fit the layout into the drawing area (auto-zoom)
+    const xs = ns.map((n) => n.x ?? 0), ys = ns.map((n) => n.y ?? 0);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const pad = 50;
+    const sc = Math.min((W - 2 * pad) / Math.max(x1 - x0, 1), (H - 2 * pad) / Math.max(y1 - y0, 1), 3);
+    const ox = (W - sc * (x1 - x0)) / 2, oy = (H - sc * (y1 - y0)) / 2;
+    setPositions(new Map(ns.map((n) => [n.id, { x: ox + sc * ((n.x ?? 0) - x0), y: oy + sc * ((n.y ?? 0) - y0) }])));
   }, [nodes, links, tooBig, aggregated]);
 
   if (!project.reactions.length) return <Card title="Reaktionsnetzwerk"><p>Noch keine Reaktionen.</p></Card>;

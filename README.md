@@ -1,134 +1,134 @@
-# AutoKinetics 2 — Chemical Reaction Network Simulator
+# AutoKinetics
 
-AutoKinetics simulates real chemical processes: gas-phase combustion mechanisms (e.g. the full
-GRI-Mech 3.0), liquid-phase kinetics, enzyme kinetics, oscillating reactions and thermal runaway in
-cooled reactors. A C++ core (bound via Cython) evaluates thermodynamics, rates and analytic Jacobians;
-self-implemented C++ integrators and linear solvers handle stiff systems; a web UI (German) makes it
-usable without programming.
+**Chemische Reaktionen im Browser simulieren – von der Esterverseifung im Praktikum bis zur Methan-Zündung mit 325 Elementarreaktionen.**
 
-![Python](https://img.shields.io/badge/python-3.10+-blue.svg) ![C++17](https://img.shields.io/badge/C++-17-blue.svg) ![License](https://img.shields.io/badge/license-GPLv3-green.svg)
+Reaktionen eintippen, Startbedingungen wählen, auf *Simulieren* klicken: AutoKinetics rechnet aus, wie sich Konzentrationen, Temperatur und Druck über die Zeit entwickeln – und erklärt dabei, *warum* es so rechnet, wie es rechnet.
 
-## Features
+![Methan/Luft-Zündung mit GRI-Mech 3.0 – Radikale wie H, O, OH und HO₂ bauen sich über Millisekunden auf, bis das Gemisch zündet](docs/screenshots/ignition-species.png)
 
-**Chemistry**
-- Cantera-compatible YAML mechanisms (NASA-7/9, Shomate, constant-cp thermo; elementary, three-body,
-  fall-off Lindemann/Troe/SRI, PLOG reactions) — import/export, plus legacy AutoKinetics 1.x `.kin` files
-- Reversible reactions from thermodynamics (detailed balance via ΔG°), explicit reverse Arrhenius or K(T)
-- Validation: element and charge balance, missing thermo, duplicates — with clear (German) messages
-- Reactors: batch at constant volume or pressure, isothermal / temperature programme / adiabatic /
-  heat exchange (UA), liquid energy balance, CSTR, buffered species
-- Chemical equilibrium (Gibbs/Helmholtz minimisation; TP, TV, HP, UV), e.g. adiabatic flame temperatures
-- Analysis: rates of production, sensitivities, reaction-order and Arrhenius fits (95 % CIs),
-  parameter estimation from measured concentration data
+<p align="center"><i>Selbstzündung von Methan in Luft (GRI-Mech 3.0, 53 Stoffe, 325 Reaktionen): Radikale wachsen über zehn Größenordnungen, bis das Gemisch nach 3,4 ms zündet.</i></p>
 
-**Open data**
-- PubChem (identity, formula, CAS), NIST Chemistry WebBook (ΔfH°, S°, Shomate / cp(T) fits),
-  bundled NASA thermo database (McBride et al., 748 species) for offline use; cached and rate-limited
+![Temperaturverlauf bei der Zündung](docs/screenshots/ignition-temperature.png)
 
-**Numerics** (see [docs/NUMERICS.md](docs/NUMERICS.md))
-- C++ integrators: explicit RK (Euler, Heun, RK4, Dormand–Prince), implicit RK (implicit Euler/midpoint,
-  trapezoidal, Gauss–Legendre, Radau IIA 3/5, SDIRK2/3), Rosenbrock ROS2, variable-step BDF2;
-  Newton / simplified Newton / fixed-point iteration; LU (with/without pivoting), Householder QR,
-  Jacobi, Gauß–Seidel, CGNR; eigenvalues via Hessenberg + Francis QR
-- **Auto-optimisation**: stability (Jacobian spectra, stiffness, stability regions), consistency
-  (order conditions, empirical local order), convergence (global order, tolerance proportionality,
-  Newton contraction), then picks method, solvers and tolerance with the least work for a requested
-  global accuracy
+---
 
-**Example library** (with literature sources): N₂O₅ decomposition, cyclopropane isomerisation,
-N₂O₄ ⇌ 2 NO₂, esterification (K = 4), saponification, Michaelis–Menten, Oregonator, Robertson,
-thermal runaway (Semenov), CSTR, H₂/O₂ and methane/air ignition (GRI-Mech 3.0).
+## Was man damit machen kann
 
-## Validation against physical reality
+### Reaktionen einfach hinschreiben
+Gleichungen wie `2 H2 + O2 => 2 H2O` oder `N2O4 <=> 2 NO2` eingeben – fehlende Stoffe werden automatisch angelegt. AutoKinetics prüft sofort, ob die Atome und Ladungen aufgehen, und zeigt bei jeder Geschwindigkeitskonstante die passende Einheit an.
 
-The test-suite (`pytest`, ~280 tests + Playwright end-to-end tests) checks, among others:
+![Mechanismus-Editor](docs/screenshots/mechanism.png)
 
-| Check | Result |
-|---|---|
-| Rates/thermo vs. Cantera (H₂/O₂, GRI-Mech 3.0, n-dodecane, fall-off/SRI/PLOG) | rel. deviation ≤ 1e-10 |
-| Ignition delay and final temperature vs. Cantera reactors | ≤ 2e-3 / ≤ 1e-6 |
-| Equilibrium vs. Cantera (TP/HP/UV/TV) | ΔT ≤ 1e-9 rel., Δx ≤ 1e-10 |
-| Adiabatic flame temperature CH₄/air, H₂/air | 2225.5 K, 2380.8 K (literature ≈ 2226 K, ≈ 2390 K) |
-| Analytical solutions (0th/½/1st/2nd order, Bateman, reversible, CSTR, T-programme) | ≤ 1e-7 |
-| Robertson reference solution (Hairer & Wanner) | ≤ 1e-6 |
-| Conservation of elements, mass, enthalpy (const p) and internal energy (const V) | ≤ 1e-12 / 1e-7 |
-| Long-time kinetics = Gibbs equilibrium; detailed balance k_f/k_r = K_c | ✓ |
-| N₂O₄ K_p(298 K) ≈ 0.15, Le Chatelier, esterification conversion 2/3 | ✓ |
-| Every integrator reaches its theoretical order; stability functions match closed forms | ✓ |
+### 13 Beispiele zum Ausprobieren
+Vom Klassiker der Kinetik 1. Ordnung (N₂O₅-Zerfall) über Enzymkinetik und thermisches Durchgehen eines Reaktors bis zur Verbrennung – alle mit Literaturquellen.
 
-## Quick start
+![Beispielbibliothek](docs/screenshots/examples.png)
+
+### Chemie, die sich bewegt
+Die Belousov-Zhabotinsky-Reaktion oszilliert von selbst – hier simuliert mit dem Oregonator-Modell:
+
+![Oregonator: Oszillation von HBrO₂, Br⁻ und Ce⁴⁺](docs/screenshots/oregonator.png)
+
+### Verstehen, was passiert
+- **Sensitivitätsanalyse:** Welche Reaktion steuert das Ergebnis? Bei der Wasserstoff-Zündung ist es eindeutig die Kettenverzweigung H + O₂ → O + OH.
+- **Reaktionsflüsse:** Welche Reaktion bildet oder verbraucht einen Stoff wie stark?
+- **Gleichgewicht:** Wo landet die Reaktion am Ende – inklusive adiabatischer Flammentemperatur.
+- **Netzwerk-Ansicht:** Der ganze Mechanismus als Graph.
+
+![Sensitivitätsanalyse der Zündverzugszeit](docs/screenshots/sensitivity.png)
+
+![Reaktionsnetzwerk H₂/O₂](docs/screenshots/network.png)
+
+### Eigene Messdaten auswerten
+Messreihe einfügen und AutoKinetics bestimmt Reaktionsordnung, Arrhenius-Parameter (mit Konfidenzintervall) oder passt die Geschwindigkeitskonstanten des Modells direkt an die Daten an.
+
+### Stoffdaten automatisch nachschlagen
+Ein Klick auf *Stoffdaten suchen* holt Summenformel und Molmasse aus **PubChem** und Thermodaten aus dem **NIST Chemistry WebBook** – offline aus der mitgelieferten **NASA-Thermodatenbank**.
+
+### Der passende Löser – automatisch
+Chemische Systeme sind oft *steif*: Manche Reaktionen laufen in Nanosekunden, andere über Stunden. Der Numerik-Bereich untersucht das Problem (Stabilität, Konsistenz, Konvergenz), probiert verschiedene Verfahren aus und empfiehlt das schnellste, das genau genug ist – mit nachvollziehbarer Begründung und einem Klick zum Übernehmen.
+
+![Empfehlung der automatischen Löseroptimierung](docs/screenshots/numerics-recommendation.png)
+
+![Stabilitätsgebiet und Eigenwerte](docs/screenshots/numerics-stability.png)
+
+![Konsistenz- und Konvergenzordnung](docs/screenshots/numerics-order.png)
+
+---
+
+## Stimmen die Ergebnisse?
+
+Jede Version wird automatisch gegen die Realität geprüft – unter anderem:
+
+- **Vergleich mit Cantera**, dem Standardwerkzeug der Verbrennungsforschung: Reaktionsraten stimmen bis auf 10⁻¹⁰, Zündverzugszeiten auf 0,2 % überein.
+- **Adiabatische Flammentemperatur** von Methan/Luft: 2225,5 K (Literatur ≈ 2226 K).
+- **Analytische Lösungen** (1. und 2. Ordnung, Folgereaktionen, Rührkessel) werden auf 7 Stellen genau getroffen.
+- **Erhaltungssätze:** Atome, Masse und Energie bleiben erhalten.
+- **Thermodynamik:** Jede Simulation läuft langfristig genau ins chemische Gleichgewicht; K_p von N₂O₄ ⇌ 2 NO₂ ≈ 0,15 wie im Lehrbuch.
+
+---
+
+## Starten
+
+**Mit Docker (am einfachsten):**
+
+```bash
+docker compose up --build
+```
+Dann <http://localhost:8000> öffnen.
+
+**Ohne Docker** (Python ≥ 3.10, Node.js, C++-Compiler):
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
-pip install -e ".[dev]"            # builds the C++/Cython extension
+pip install -e ".[dev]"
 (cd frontend && npm ci && npm run build)
-autokinetics serve                 # http://127.0.0.1:8000
+autokinetics serve
 ```
 
-Docker:
+**Auf der Kommandozeile:**
 
 ```bash
-docker compose up --build          # http://localhost:8000
+autokinetics examples                                  # Beispiele auflisten
+autokinetics example methane_air_gri30 --out ergebnis.csv
+autokinetics lookup ethanol                            # Stoffdaten nachschlagen
 ```
 
-CLI:
+---
+
+## Für Entwickler
+
+<details>
+<summary>Aufbau, Technik und Tests</summary>
+
+**Aufbau**
+
+```
+frontend/                React + TypeScript + Plotly (Oberfläche)
+src/autokinetics/api     REST-API (FastAPI), Rechenjobs in eigenen Prozessen
+src/autokinetics/        Mechanismen (Cantera-YAML), Thermodynamik, Reaktoren, Gleichgewicht, Analyse
+src/autokinetics/numerics/  Löser-Auswahl, Stabilitäts-/Konsistenz-/Konvergenzanalyse
+src/autokinetics/data/   PubChem, NIST WebBook, NASA-Datenbank
+cpp/                     C++-Kern: Kinetik mit analytischer Jacobi-Matrix, Integratoren,
+                         lineare Algebra – eingebunden über Cython
+```
+
+**Kinetik:** Cantera-kompatible YAML-Mechanismen (NASA-7/9, Shomate; Elementar-, Dreierstoß-, Fall-off- (Lindemann/Troe/SRI) und PLOG-Reaktionen), Import alter `.kin`-Dateien. Reaktoren: Batch bei konstantem Volumen oder Druck, isotherm / Temperaturprogramm / adiabat / gekühlt, Rührkessel (CSTR), gepufferte Spezies.
+
+**Numerik:** eigene C++-Integratoren – explizite und implizite Runge-Kutta-Verfahren (Euler, Heun, RK4, Dormand–Prince, Gauß–Legendre, Radau IIA, SDIRK), Rosenbrock, BDF2; Newton-Varianten und Fixpunktiteration; LU, QR, Jacobi, Gauß–Seidel, CG; Eigenwerte per Hessenberg-QR. Details: [docs/NUMERICS.md](docs/NUMERICS.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+**Tests:**
 
 ```bash
-autokinetics examples
-autokinetics example methane_air_gri30 --out result.csv
-autokinetics run my_mechanism.yaml --reactor reactor.yaml --t-end 10 --method radau5
-autokinetics validate my_mechanism.yaml
-autokinetics lookup ethanol
+python setup.py build_ext --inplace    # C++ neu bauen
+pytest -m "not network"                # ~280 Tests: Physik, Numerik, API
+cd frontend && npx vitest run && npx playwright test
 ```
 
-Python:
+**Konfiguration** über Umgebungsvariablen: `AUTOKINETICS_WORKERS` (Rechenprozesse), `AUTOKINETICS_MAX_WALL_TIME` (Zeitlimit pro Job in s), `AUTOKINETICS_OFFLINE=1` (keine Online-Abfragen), `AUTOKINETICS_CACHE_DIR`.
 
-```python
-from autokinetics.library import load_example
-from autokinetics.presets import reactor_spec_from_dict, options_from_dict
-from autokinetics.simulation import simulate
+</details>
 
-mech, meta, _ = load_example("hydrogen_oxygen_ignition")
-spec = reactor_spec_from_dict({"constraint": "pressure", "energy": "adiabatic", "T": 1000, "P": "1 atm",
-                               "composition": {"H2": 2, "O2": 1, "AR": 7}}, mech)
-res = simulate(mech, spec, options_from_dict({"t_end": 2e-3, "method": "radau5"}))
-print(res.metrics["ignition_delay"], res.T[-1])
-```
+## Quellen & Lizenz
 
-## Architecture
-
-```
-frontend/ (React + TypeScript + Plotly)  ──REST──►  src/autokinetics/api (FastAPI, process pool)
-src/autokinetics/  mechanism model, Cantera YAML I/O, units, thermo, reactors, equilibrium, analysis
-src/autokinetics/numerics/  solver registry, stability/consistency/convergence analysis, auto-tuner
-src/autokinetics/data/  PubChem, NIST WebBook, NASA database
-cpp/src/kinetics/  thermo, rates, analytic Jacobian, reactor models   ┐ one Cython extension,
-cpp/src/numerics/  integrators, Newton, linear algebra, eigenvalues   ┘ joined at ak::OdeSystem
-```
-
-Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/NUMERICS.md](docs/NUMERICS.md).
-
-## Configuration (environment)
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `AUTOKINETICS_WORKERS` | CPUs/2 | worker processes for simulations |
-| `AUTOKINETICS_MAX_WALL_TIME` | 120 | time limit per job [s] |
-| `AUTOKINETICS_MAX_SPECIES` / `_MAX_REACTIONS` | 2000 / 20000 | mechanism size limits |
-| `AUTOKINETICS_OFFLINE` | 0 | `1`: no PubChem/NIST requests |
-| `AUTOKINETICS_CACHE_DIR` | `~/.cache/autokinetics` | cache for open-data responses |
-| `AUTOKINETICS_CORS_ORIGINS` | – | comma-separated origins (only for a separately hosted frontend) |
-
-## Development
-
-```bash
-python setup.py build_ext --inplace     # rebuild C++ after changes
-pytest -m "not network"                 # all offline tests
-(cd frontend && npx vitest run && npx playwright test)
-```
-
-## Data sources and licences
-
-GRI-Mech 3.0 (Smith et al.) and the H₂/O₂ submechanism are redistributed from Cantera's data files;
-NASA thermodynamic data: McBride, Gordon & Reno, NASA TM-4513 (public domain). Code licensed under
-GPL-3.0-or-later (see `LICENSE.md`).
+GRI-Mech 3.0 (Smith et al.) und der H₂/O₂-Teilmechanismus stammen aus den Datendateien von Cantera; NASA-Thermodaten: McBride, Gordon & Reno, NASA TM-4513. Lizenz: GPL-3.0-or-later (siehe `LICENSE.md`).
