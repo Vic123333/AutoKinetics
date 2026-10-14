@@ -27,3 +27,6 @@ frontend/playwright-report/
 # Runtime data
 .cache/
 *.log
+
+# Claude Code local data (agent worktrees etc.)
+.claude/
