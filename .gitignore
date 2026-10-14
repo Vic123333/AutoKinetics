@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Cython / C++ build artefacts
+src/autokinetics/_ext/*.cpp
+src/autokinetics/_ext/*.so
+src/autokinetics/_ext/*.html
+*.so
+*.o
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+
+# Runtime data
+.cache/
+*.log
