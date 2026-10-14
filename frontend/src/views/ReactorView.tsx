@@ -178,15 +178,21 @@ function TemperatureProgram({ ctx }: { ctx: AppContext }) {
   );
 }
 
+const FAMILY_DE: Record<string, string> = {
+  Automatisch: "Automatisch", explicit_rk: "Explizite Runge-Kutta-Verfahren", implicit_rk: "Implizite Runge-Kutta-Verfahren",
+  rosenbrock: "Linear-implizit (Rosenbrock)", multistep: "Mehrschrittverfahren", scipy: "SciPy-Referenz",
+};
+
 function SolverCard({ ctx }: { ctx: AppContext }) {
   const { project, update, methods } = ctx;
   const s = project.simulation;
   const setS = (patch: Partial<SimForm>) => update((p) => void Object.assign(p.simulation, patch));
-  const list = methods.methods.length ? methods.methods : [{ id: "scipy:BDF", label_de: "SciPy BDF" }];
+  const list = methods.methods.length ? methods.methods : [{ id: "auto", label_de: "Automatisch", family: "Automatisch" }];
   const current = list.find((m) => m.id === s.method);
   const families = [...new Set(list.map((m) => String(m.family ?? "Sonstige")))];
-  const implicit = current ? current.implicit !== false && String(current.family ?? "").toLowerCase() !== "explicit rk" && !String(current.id).startsWith("scipy") : false;
-  const fixedOnly = current ? current.adaptive === false : false;
+  const usesLinear = !!current?.uses_linear_solver;
+  const usesNonlinear = !!current?.uses_nonlinear_solver;
+  const fixedPossible = !!current?.supports_fixed_step;
   return (
     <Card title="Zeit & numerischer Löser" actions={<button className="ghost small" onClick={() => ctx.goto("numerics")}>Auto-Optimierung …</button>}>
       <div className="row">
@@ -198,42 +204,42 @@ function SolverCard({ ctx }: { ctx: AppContext }) {
             </select>
           </div>
         </Field>
-        <Field label="Verfahren" hint={current?.description_de as string | undefined}>
-          <select value={s.method} onChange={(e) => setS({ method: e.target.value })}>
+        <Field label="Verfahren" hint={[current?.description_de, current?.stability_de, current?.lecture_ref ? `Skript: ${current.lecture_ref}` : null].filter(Boolean).join(" · ") || undefined} wide>
+          <select value={s.method} onChange={(e) => setS({ method: e.target.value, fixed_step: null })}>
             {families.map((fam) => (
-              <optgroup key={fam} label={fam}>
+              <optgroup key={fam} label={FAMILY_DE[fam] ?? fam}>
                 {list.filter((m) => String(m.family ?? "Sonstige") === fam).map((m) => (
-                  <option key={m.id} value={m.id}>{m.label_de ?? m.id}{m.order ? ` (Ordnung ${m.order})` : ""}</option>
+                  <option key={m.id} value={m.id}>{m.label_de ?? m.id}{m.order ? ` – Ordnung ${m.order}` : ""}</option>
                 ))}
               </optgroup>
             ))}
           </select>
         </Field>
-        <Field label="rtol" hint="relative Toleranz"><NumInput value={s.rtol} min={0} onChange={(v) => setS({ rtol: v })} /></Field>
-        <Field label="atol (relativ zur Gesamtkonz.)"><NumInput value={s.atol_rel} min={0} onChange={(v) => setS({ atol_rel: v })} /></Field>
       </div>
       <div className="row">
-        {fixedOnly && (
-          <Field label="Feste Schrittweite h [s]" hint="Verfahren ohne Schrittweitensteuerung">
-            <NumInput value={s.fixed_step ?? s.t_end / 1000} min={0} onChange={(v) => setS({ fixed_step: v })} />
+        <Field label="rtol" hint="relative Toleranz (lokaler Fehler)"><NumInput value={s.rtol} min={0} onChange={(v) => setS({ rtol: v })} /></Field>
+        <Field label="atol (relativ zur Gesamtkonz.)"><NumInput value={s.atol_rel} min={0} onChange={(v) => setS({ atol_rel: v })} /></Field>
+        {fixedPossible && (
+          <Field label="Feste Schrittweite h [s]" hint="leer = Schrittweitensteuerung">
+            <NumInput value={s.fixed_step} allowEmpty min={0} onChange={(v) => setS({ fixed_step: Number.isNaN(v) ? null : v })} />
           </Field>
         )}
-        {implicit && methods.linear_solvers.length > 0 && (
-          <Field label="Lineares Gleichungssystem">
+        {usesLinear && methods.linear_solvers.length > 0 && (
+          <Field label="Lineares Gleichungssystem" hint={methods.linear_solvers.find((m) => m.id === s.linear_solver)?.description_de as string | undefined}>
             <select value={s.linear_solver} onChange={(e) => setS({ linear_solver: e.target.value })}>
               {methods.linear_solvers.map((m) => <option key={m.id} value={m.id}>{m.label_de ?? m.id}</option>)}
             </select>
           </Field>
         )}
-        {implicit && methods.nonlinear_solvers.length > 0 && (
-          <Field label="Nichtlineare Iteration">
+        {usesNonlinear && methods.nonlinear_solvers.length > 0 && (
+          <Field label="Nichtlineare Iteration" hint={methods.nonlinear_solvers.find((m) => m.id === s.nonlinear_solver)?.description_de as string | undefined}>
             <select value={s.nonlinear_solver} onChange={(e) => setS({ nonlinear_solver: e.target.value })}>
               {methods.nonlinear_solvers.map((m) => <option key={m.id} value={m.id}>{m.label_de ?? m.id}</option>)}
             </select>
           </Field>
         )}
         <Field label="Ausgabepunkte"><NumInput value={s.max_points} min={10} onChange={(v) => setS({ max_points: Math.round(v) })} /></Field>
-        <Field label="Logarithmische Zeitachse">
+        <Field label="Log. Zeitachse">
           <input type="checkbox" checked={s.log_time} onChange={(e) => setS({ log_time: e.target.checked })} />
         </Field>
       </div>

@@ -214,7 +214,10 @@ def numerics_methods():
         return [i if isinstance(i, dict) else (asdict(i) if hasattr(i, "__dataclass_fields__") else dict(i))
                 for i in items]
 
-    return {"methods": norm(METHODS), "linear_solvers": norm(LINEAR_SOLVERS),
+    auto = {"id": "auto", "label_de": "Automatisch (Radau5 für ≤ 40 Zustände, sonst BDF)",
+            "description_de": "Wählt anhand der Systemgröße; die Numerik-Analyse liefert eine problemangepasste Empfehlung.",
+            "family": "Automatisch", "order": None, "implicit": True, "adaptive": True}
+    return {"methods": [auto, *norm(METHODS)], "linear_solvers": norm(LINEAR_SOLVERS),
             "nonlinear_solvers": norm(NONLINEAR_SOLVERS)}
 
 
