@@ -1,0 +1,28 @@
+description: Gleichgewicht N2O4 ⇌ 2 NO2 mit thermodynamisch konsistenter Rückreaktion.
+references:
+- "Thermodaten: NASA TM-4513 (McBride et al. 1993) – liefert Kp(298 K) ≈ 0.14–0.15 (Lehrbuchwert ≈ 0.15)"
+- "Hinräktion: illustrative Arrhenius-Parameter (Ea ≈ Bindungsdissoziationsenthalpie ≈ 54 kJ/mol); die Gleichgewichtslage hängt davon nicht ab"
+units: {length: m, quantity: mol, activation-energy: kJ/mol}
+phases:
+- name: gas
+  thermo: ideal-gas
+  species: [N2O4, NO2, N2]
+species:
+- {name: N2O4, composition: {N: 2, O: 4}, thermo: {model: database, name: N2O4}}
+- {name: NO2, composition: {N: 1, O: 2}, thermo: {model: database, name: NO2}}
+- {name: N2, composition: {N: 2}, thermo: {model: database, name: N2}}
+reactions:
+- equation: N2O4 <=> 2 NO2
+  rate-constant: {A: 1.0e16, b: 0.0, Ea: 54.0}
+autokinetics:
+  title: N₂O₄ ⇌ 2 NO₂ (Gleichgewicht)
+  category: Gleichgewicht
+  parameter_quality: mixed
+  summary: >-
+    Dissoziationsgleichgewicht bei konstantem Druck. Der Endzustand der Kinetik muss exakt dem
+    thermodynamischen Gleichgewicht (Gibbs-Minimierung) entsprechen – Temperatur oder Druck variieren
+    und Le Chatelier beobachten.
+  reactor: {kind: batch, constraint: pressure, energy: isothermal, T: 298.15, P: 1 atm,
+            basis: mole-fraction, composition: {N2O4: 1.0}}
+  simulation: {t_end: 1.0e-3, rtol: 1e-9, log_time: true}
+  plot: {species: [N2O4, NO2], log_time: true}

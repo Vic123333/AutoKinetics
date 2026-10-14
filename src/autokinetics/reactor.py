@@ -37,6 +37,7 @@ class ReactorSpec:
     tau: float | None = None
     feed: dict[str, float] = field(default_factory=dict)  # mol/m³
     T_feed: float | None = None
+    fixed_species: list[str] = field(default_factory=list)  # buffered: constant concentration
 
     def validate(self, mech: Mechanism) -> None:
         gas = mech.phase == "ideal-gas"
@@ -88,6 +89,11 @@ class ReactorSpec:
                     raise SimulationError(f"{what}: Wert für '{k}' muss endlich und ≥ 0 sein")
         if not any(v > 0 for v in self.initial.values()) and self.kind == "batch":
             raise SimulationError("Startzusammensetzung ist leer")
+        for k in self.fixed_species:
+            if k not in names:
+                raise SimulationError(f"Gepufferte Spezies: unbekannt '{k}'")
+        if self.fixed_species and self.constraint != "volume":
+            raise SimulationError("Gepufferte Spezies nur bei konstantem Volumen")
 
     def initial_concentrations(self, mech: Mechanism) -> np.ndarray:
         c = np.zeros(mech.n_species)
@@ -133,7 +139,8 @@ def build_reactor(mech: Mechanism, spec: ReactorSpec, rtol: float = 1e-6,
             flow=1 if spec.kind == "cstr" else 0, P0=spec.P0, T_program=T_prog,
             UA_V=spec.UA_V if spec.energy == "heat-exchange" else 0.0, T_env_program=T_env_prog,
             rho_cp=spec.rho_cp, tau=spec.tau or 0.0, c_in=c_in,
-            T_in=spec.T_feed if spec.T_feed is not None else spec.T0)
+            T_in=spec.T_feed if spec.T_feed is not None else spec.T0,
+            fixed=[1 if n in spec.fixed_species else 0 for n in mech.species_names] if spec.fixed_species else None)
     except ValueError as e:
         raise SimulationError(f"Reaktor ungültig: {e}") from None
     # constant pressure: amounts per m³ of initial volume (V0 = 1 m³) -> numerically n = c0

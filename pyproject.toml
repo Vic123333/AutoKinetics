@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "GPL-3.0-or-later" }
 dependencies = [
-  "numpy>=1.24",
+  "numpy>=2.0",
   "scipy>=1.10",
   "pyyaml>=6",
   "pydantic>=2.5",
@@ -33,7 +33,7 @@ autokinetics = ["library/*.yaml", "library/*.json", "static/**/*", "py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "tests"]
 markers = [
   "network: tests that call external web APIs (deselect with -m 'not network')",
   "slow: long-running validation tests",

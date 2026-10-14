@@ -1,0 +1,24 @@
+description: Kontinuierlicher Rührkessel (CSTR) mit Reaktion 1. Ordnung – Anfahrverhalten und stationärer Zustand.
+references:
+- "O. Levenspiel: Chemical Reaction Engineering, Kap. 5 – Idealreaktoren"
+units: {length: dm, quantity: mol, activation-energy: kJ/mol}
+phases:
+- {name: liquid, thermo: liquid, species: [A, B]}
+species:
+- {name: A}
+- {name: B}
+reactions:
+- {equation: A => B, rate-constant: {A: 0.01, b: 0, Ea: 0}}
+autokinetics:
+  title: CSTR, 1. Ordnung
+  category: Reaktionstechnik
+  parameter_quality: illustrative
+  summary: >-
+    Stationärer Umsatz X = kτ/(1 + kτ) = 0.5 für k = 0.01 1/s und τ = 100 s. Der anfangs mit
+    Lösungsmittel gefüllte Reaktor nähert sich dem stationären Zustand mit der Zeitkonstante τ/(1 + kτ).
+  reactor: {kind: cstr, energy: isothermal, T: 298.15, tau: 100, basis: concentration,
+            concentration_unit: mol/L, composition: {B: 0.0}, feed: {A: 1.0}}
+  simulation: {t_end: 1000, rtol: 1e-9}
+  plot: {species: [A, B]}
+  expected:
+  - {quantity: final_value, species: A, value: 0.5, unit: mol/L, tolerance: 0.001}

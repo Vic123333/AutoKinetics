@@ -38,6 +38,7 @@ cdef extern from "autokinetics/kinetics/reactor.hpp" namespace "ak":
         int energy, constraint, flow
         double P0, UA_V, rho_cp, tau, T_in
         vector[double] T_prog_t, T_prog_T, T_env_t, T_env_T, c_in
+        vector[unsigned char] fixed
 
     cdef cppclass ReactorSystem(OdeSystem):
         ReactorSystem(shared_ptr[Kinetics], ReactorConfig) except +
@@ -167,7 +168,7 @@ cdef class Reactor(OdeSystemHandle):
 
     def __cinit__(self, KineticsModel kinetics, *, int energy=0, int constraint=0, int flow=0,
                   double P0=1e5, T_program=None, double UA_V=0.0, T_env_program=None,
-                  double rho_cp=4.18e6, double tau=0.0, c_in=None, double T_in=300.0):
+                  double rho_cp=4.18e6, double tau=0.0, c_in=None, double T_in=300.0, fixed=None):
         cdef ReactorConfig cfg
         cfg.energy = energy
         cfg.constraint = constraint
@@ -185,6 +186,9 @@ cdef class Reactor(OdeSystemHandle):
             cfg.T_env_t = _dvec(te[:, 0]); cfg.T_env_T = _dvec(te[:, 1])
         if c_in is not None:
             cfg.c_in = _dvec(c_in)
+        if fixed is not None:
+            for x in np.asarray(fixed, dtype=np.uint8).ravel():
+                cfg.fixed.push_back(<unsigned char>x)
         self.kinetics = kinetics
         self.reactor = new ReactorSystem(kinetics.kin, cfg)
         self.ptr = self.reactor

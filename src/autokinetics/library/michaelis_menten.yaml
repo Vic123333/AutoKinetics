@@ -1,0 +1,29 @@
+description: Enzymkinetik als Elementarschritte E + S ⇌ ES → E + P.
+references:
+- "L. Michaelis, M. L. Menten, Biochem. Z. 49 (1913) 333; Briggs–Haldane-Näherung"
+- "Geschwindigkeitskonstanten illustrativ (K_M = 1.1 mmol/L, k_cat = 100 1/s)"
+units: {length: dm, quantity: mol, activation-energy: kJ/mol}
+phases:
+- {name: liquid, thermo: liquid, species: [E, S, ES, P]}
+species:
+- {name: E}
+- {name: S}
+- {name: ES}
+- {name: P}
+reactions:
+- equation: E + S <=> ES
+  rate-constant: {A: 1.0e6, b: 0, Ea: 0}
+  reverse-rate-constant: {A: 1.0e3, b: 0, Ea: 0}
+- equation: ES => E + P
+  rate-constant: {A: 100.0, b: 0, Ea: 0}
+autokinetics:
+  title: Michaelis–Menten (Elementarschritte)
+  category: Biochemie
+  parameter_quality: illustrative
+  summary: >-
+    Vollständiges Elementarschritt-Modell ohne Quasistationaritätsannahme. Für [E]₀ ≪ [S]₀ + K_M
+    folgt die Produktbildung der integrierten Michaelis–Menten-Gleichung.
+  reactor: {kind: batch, energy: isothermal, T: 298.15, basis: concentration, concentration_unit: mol/L,
+            composition: {E: 1.0e-6, S: 1.0e-2}}
+  simulation: {t_end: 400, rtol: 1e-9}
+  plot: {species: [S, P]}

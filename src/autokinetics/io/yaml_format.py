@@ -135,6 +135,15 @@ def _thermo(data: dict | None, name: str) -> Nasa9Thermo | None:
         return None
     model = data.get("model")
     src = data.get("note", "") or data.get("source", "")
+    if model == "database":  # AutoKinetics extension: reference into the bundled NASA database
+        from ..data import nasa_db
+
+        if data.get("database", "NASA") != "NASA":
+            raise MechanismError(f"Spezies {name}: unbekannte Thermo-Datenbank '{data.get('database')}'")
+        hit = nasa_db.by_name(str(data.get("name", name)))
+        if hit is None:
+            raise MechanismError(f"Spezies {name}: '{data.get('name', name)}' nicht in der NASA-Datenbank")
+        return hit[1]
     # Cantera's default reference pressure is 1 atm for all species thermo models.
     p_ref = _pressure(data["reference-pressure"], UnitSystem()) if "reference-pressure" in data else 101325.0
     try:
@@ -171,7 +180,7 @@ def _thermo(data: dict | None, name: str) -> Nasa9Thermo | None:
     except KeyError as e:
         raise MechanismError(f"Spezies {name}: Thermo-Feld {e} fehlt") from None
     raise MechanismError(f"Spezies {name}: Thermo-Modell '{model}' nicht unterstützt "
-                         "(NASA7, NASA9, Shomate, constant-cp)")
+                         "(NASA7, NASA9, Shomate, constant-cp, database)")
 
 
 def _species(data: dict) -> Species:

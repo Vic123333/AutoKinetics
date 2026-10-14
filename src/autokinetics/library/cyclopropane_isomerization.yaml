@@ -1,0 +1,31 @@
+description: Isomerisierung von Cyclopropan zu Propen (unimolekular, Hochdruckgrenzfall).
+references:
+- "P. W. Atkins, J. de Paula: Physical Chemistry – Tabelle Arrhenius-Parameter: Cyclopropan → Propen, A = 1.58e15 1/s, Ea = 272 kJ/mol"
+- "Thermodaten: NASA TM-4513 (McBride et al. 1993)"
+units: {length: m, quantity: mol, activation-energy: kJ/mol}
+phases:
+- name: gas
+  thermo: ideal-gas
+  species: [cyclo-C3H6, C3H6, N2]
+species:
+- {name: cyclo-C3H6, composition: {C: 3, H: 6}, thermo: {model: database, name: "C3H6,cyclo-"}}
+- {name: C3H6, composition: {C: 3, H: 6}, thermo: {model: database, name: "C3H6,propylene"}}
+- {name: N2, composition: {N: 2}, thermo: {model: database, name: N2}}
+reactions:
+- equation: cyclo-C3H6 <=> C3H6
+  rate-constant: {A: 1.58e15, b: 0.0, Ea: 272.0}
+  note: Rückreaktion thermodynamisch aus ΔG° (Gleichgewicht liegt praktisch vollständig bei Propen)
+autokinetics:
+  title: Cyclopropan → Propen
+  category: Gasphase
+  parameter_quality: literature
+  summary: >-
+    Unimolekulare Isomerisierung bei 500 °C. Die Rückreaktion folgt aus den NASA-Thermodaten
+    (mikroskopische Reversibilität); das Gleichgewicht liegt praktisch vollständig auf der Propenseite.
+  reactor: {kind: batch, constraint: volume, energy: isothermal, T: 773.15, P: 1 atm,
+            basis: mole-fraction, composition: {cyclo-C3H6: 0.05, N2: 0.95}}
+  simulation: {t_end: 6000, rtol: 1e-8}
+  plot: {species: [cyclo-C3H6, C3H6]}
+  expected:
+  - {quantity: half_life, species: cyclo-C3H6, value: 1043.2, unit: s, tolerance: 0.005,
+     note: "ln 2 / k mit k(773.15 K) = 6.64e-4 1/s"}

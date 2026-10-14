@@ -1,0 +1,33 @@
+description: Thermischer Zerfall von Distickstoffpentoxid in der Gasphase (1. Ordnung).
+references:
+- "P. W. Atkins, J. de Paula: Physical Chemistry – Tabelle Arrhenius-Parameter (Gasphase, 1. Ordnung): 2 N2O5 → 4 NO2 + O2, A = 4.94e13 1/s, Ea = 103.4 kJ/mol"
+- "F. Daniels, E. H. Johnston, J. Am. Chem. Soc. 43 (1921) 53 – Messung k(45 °C) ≈ 5e-4 1/s"
+- "Thermodaten: B. J. McBride, S. Gordon, M. A. Reno, NASA TM-4513 (1993)"
+units: {length: m, quantity: mol, activation-energy: kJ/mol}
+phases:
+- name: gas
+  thermo: ideal-gas
+  species: [N2O5, NO2, O2, N2]
+species:
+- {name: N2O5, composition: {N: 2, O: 5}, thermo: {model: database, name: N2O5}}
+- {name: NO2, composition: {N: 1, O: 2}, thermo: {model: database, name: NO2}}
+- {name: O2, composition: {O: 2}, thermo: {model: database, name: O2}}
+- {name: N2, composition: {N: 2}, thermo: {model: database, name: N2}}
+reactions:
+- equation: N2O5 => 2 NO2 + 0.5 O2
+  rate-constant: {A: 4.94e13, b: 0.0, Ea: 103.4}
+  note: Geschwindigkeitsgesetz −d[N2O5]/dt = k[N2O5] (k pro umgesetztem N2O5)
+autokinetics:
+  title: N₂O₅-Zerfall (Daniels & Johnston)
+  category: Gasphase
+  parameter_quality: literature
+  summary: >-
+    Klassisches Beispiel einer Reaktion 1. Ordnung. Bei 45 °C ergibt sich k = 5.2e-4 1/s
+    (Halbwertszeit ≈ 22 min), in guter Übereinstimmung mit der Messung von Daniels & Johnston.
+  reactor: {kind: batch, constraint: volume, energy: isothermal, T: 318.15, P: 1 atm,
+            basis: mole-fraction, composition: {N2O5: 0.1, N2: 0.9}}
+  simulation: {t_end: 7200, rtol: 1e-8}
+  plot: {species: [N2O5, NO2, O2]}
+  expected:
+  - {quantity: half_life, species: N2O5, value: 1328.1, unit: s, tolerance: 0.002,
+     note: "ln 2 / k mit k = A·exp(−Ea/RT) bei 318.15 K"}

@@ -9,6 +9,7 @@
 //   ideal gas, const P : sum(n_i cp_i) dT/dt = -V sum(h_i wdot_i) + V q_ext
 //   liquid             : rho cp dT/dt        = -sum_j dH_j q_j + q_ext (+ rho cp (T_in - T)/tau for CSTR)
 // CSTR (constant volume): dc/dt = wdot + (c_in - c)/tau
+// Buffered ("fixed") species keep their concentration: dc_i/dt = 0 (constant volume only).
 #pragma once
 
 #include <memory>
@@ -37,6 +38,7 @@ struct ReactorConfig {
     double tau = 0.0;                     // s, CSTR residence time
     std::vector<double> c_in;             // mol/m^3, CSTR feed
     double T_in = 300.0;                  // K, CSTR feed temperature
+    std::vector<unsigned char> fixed;     // buffered species (constant concentration), size N or empty
 };
 
 double piecewise_linear(const std::vector<double>& t, const std::vector<double>& v, double x);

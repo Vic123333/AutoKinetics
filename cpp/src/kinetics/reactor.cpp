@@ -40,6 +40,10 @@ ReactorSystem::ReactorSystem(std::shared_ptr<Kinetics> kin, ReactorConfig cfg)
         throw std::invalid_argument("temperature program: size mismatch");
     if (cfg_.energy == ENERGY_BALANCE && !gas && !(cfg_.rho_cp > 0.0))
         throw std::invalid_argument("liquid energy balance requires rho*cp > 0");
+    if (!cfg_.fixed.empty()) {
+        if (cfg_.fixed.size() != static_cast<std::size_t>(ns_)) throw std::invalid_argument("fixed-species mask size");
+        if (cfg_.constraint != CONST_VOLUME) throw std::invalid_argument("buffered species require constant volume");
+    }
     n_state_ = static_cast<std::size_t>(ns_) + (cfg_.energy == ENERGY_BALANCE ? 1 : 0);
     mask_.assign(n_state_, 1);
     if (cfg_.energy == ENERGY_BALANCE) mask_[ns_] = 0;
@@ -84,6 +88,8 @@ void ReactorSystem::eval(double t, const double* y, double* dydt) {
         for (int i = 0; i < ns_; ++i) dydt[i] = wdot_[i];
         if (cfg_.flow == FLOW_CSTR)
             for (int i = 0; i < ns_; ++i) dydt[i] += (cfg_.c_in[i] - c_[i]) / cfg_.tau;
+        if (!cfg_.fixed.empty())
+            for (int i = 0; i < ns_; ++i) if (cfg_.fixed[i]) dydt[i] = 0.0;
     }
     if (cfg_.energy != ENERGY_BALANCE) return;
     const double T_env = piecewise_linear(cfg_.T_env_t, cfg_.T_env_T, t);
@@ -138,7 +144,11 @@ void ReactorSystem::jacobian(double t, const double* y, double* J) {
         if (cfg_.flow == FLOW_CSTR)
             for (int i = 0; i < ns_; ++i) J[i * n + i] -= 1.0 / cfg_.tau;
     }
-    if (!energy) return;
+    if (!energy) {
+        if (!cfg_.fixed.empty())
+            for (int i = 0; i < ns_; ++i) if (cfg_.fixed[i]) std::fill(J + i * n, J + (i + 1) * n, 0.0);
+        return;
+    }
 
     // Temperature row (analytic in the composition variables).
     eval(t, y, f0_.data());
@@ -182,6 +192,8 @@ void ReactorSystem::jacobian(double t, const double* y, double* J) {
     y1_[ns_] = T + dT;
     eval(t, y1_.data(), f1_.data());
     for (std::size_t s = 0; s < n; ++s) J[s * n + ns_] = (f1_[s] - f0_[s]) / dT;
+    if (!cfg_.fixed.empty())
+        for (int i = 0; i < ns_; ++i) if (cfg_.fixed[i]) std::fill(J + i * n, J + (i + 1) * n, 0.0);
 }
 
 }  // namespace ak

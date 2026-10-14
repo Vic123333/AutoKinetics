@@ -1,0 +1,31 @@
+description: Alkalische Esterverseifung von Ethylacetat (2. Ordnung, Flüssigphase).
+references:
+- "Typische Literaturwerte: k(25 °C) ≈ 0.11 L/(mol·s), Ea ≈ 40–48 kJ/mol (hier 45 kJ/mol); für quantitative Arbeiten Originalliteratur prüfen"
+units: {length: dm, quantity: mol, activation-energy: kJ/mol}
+phases:
+- name: liquid
+  thermo: liquid
+  species: [CH3COOC2H5, OH-, CH3COO-, C2H5OH]
+species:
+- {name: CH3COOC2H5, composition: {C: 4, H: 8, O: 2}}
+- {name: OH-, composition: {O: 1, H: 1}, charge: -1}
+- {name: CH3COO-, composition: {C: 2, H: 3, O: 2}, charge: -1}
+- {name: C2H5OH, composition: {C: 2, H: 6, O: 1}}
+reactions:
+- equation: CH3COOC2H5 + OH- => CH3COO- + C2H5OH
+  rate-constant: {A: 8.41495e6, b: 0.0, Ea: 45.0}
+  note: A so gewählt, dass k(298.15 K) = 0.11 L/(mol·s)
+autokinetics:
+  title: Esterverseifung (2. Ordnung)
+  category: Flüssigphase
+  parameter_quality: literature
+  summary: >-
+    Praktikumsklassiker zur Kinetik 2. Ordnung (Leitfähigkeitsmessung). Bei gleichen
+    Anfangskonzentrationen gilt 1/[A] − 1/[A]₀ = k t; Halbwertszeit t½ = 1/(k [A]₀).
+  reactor: {kind: batch, constraint: volume, energy: isothermal, T: 298.15, basis: concentration,
+            concentration_unit: mol/L, composition: {CH3COOC2H5: 0.02, OH-: 0.02}}
+  simulation: {t_end: 3600, rtol: 1e-8}
+  plot: {species: [CH3COOC2H5, CH3COO-]}
+  expected:
+  - {quantity: half_life, species: CH3COOC2H5, value: 454.545, unit: s, tolerance: 0.002,
+     note: "t½ = 1/(k c₀) = 1/(0.11 · 0.02) s"}

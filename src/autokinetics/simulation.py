@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import math
 import time
 from dataclasses import dataclass, field
@@ -96,7 +97,7 @@ class SimulationResult:
 
 
 # ---------------------------------------------------------------------------- integration
-def _integrate(built: BuiltReactor, opts: SimulationOptions, t_eval: np.ndarray | None):
+def _integrate(built: BuiltReactor, opts: SimulationOptions, t_eval: np.ndarray | None, t0: float = 0.0):
     system = built.system
     if not opts.method.startswith("scipy:"):
         try:
@@ -107,7 +108,7 @@ def _integrate(built: BuiltReactor, opts: SimulationOptions, t_eval: np.ndarray 
                       linear_solver=opts.linear_solver, nonlinear_solver=opts.nonlinear_solver)
         if opts.fixed_step:
             kwargs["fixed_step"] = opts.fixed_step
-        res = num_integrate(system, (0.0, opts.t_end), built.y0, **kwargs)
+        res = num_integrate(system, (t0, opts.t_end), built.y0, **kwargs)
         return res.t, res.y, bool(res.success), str(res.message), dict(res.stats)
 
     from scipy.integrate import solve_ivp
@@ -124,7 +125,7 @@ def _integrate(built: BuiltReactor, opts: SimulationOptions, t_eval: np.ndarray 
 
     jac = (lambda t, y: system.eval_jacobian(t, y)) if method in ("BDF", "Radau", "LSODA") else None
     try:
-        sol = solve_ivp(f, (0.0, opts.t_end), built.y0, method=method, rtol=opts.rtol, atol=built.atol,
+        sol = solve_ivp(f, (t0, opts.t_end), built.y0, method=method, rtol=opts.rtol, atol=built.atol,
                         jac=jac, t_eval=t_eval)
     except TimeoutError:
         raise SimulationError(f"Zeitlimit von {opts.max_wall_time:.0f} s überschritten") from None
@@ -132,6 +133,51 @@ def _integrate(built: BuiltReactor, opts: SimulationOptions, t_eval: np.ndarray 
         raise SimulationError(f"Integration abgebrochen: {e}") from None
     stats = {"rhs": int(sol.nfev), "jacobian": int(sol.njev), "lu": int(sol.nlu), "steps": len(sol.t) - 1}
     return sol.t, sol.y.T, bool(sol.success), str(sol.message), stats
+
+
+def _breakpoints(spec: ReactorSpec, t_end: float) -> list[float]:
+    """Interior times where the temperature programs have kinks/jumps; the integrator
+    is restarted there instead of stepping across a non-smooth right-hand side."""
+    pts: set[float] = set()
+    for prog in (spec.T_program, spec.T_env_program):
+        for t, _ in prog or []:
+            if 0.0 < t < t_end:
+                pts.add(float(t))
+    return sorted(pts)
+
+
+def _integrate_piecewise(built: BuiltReactor, opts: SimulationOptions, t_eval: np.ndarray | None):
+    bps = _breakpoints(built.spec, opts.t_end)
+    if not bps:
+        return _integrate(built, opts, t_eval)
+    edges = [0.0, *bps, opts.t_end]
+    ts, ys, stats, ok, msg = [], [], {}, True, ""
+    y_start = built.y0
+    for k, (a, b) in enumerate(zip(edges[:-1], edges[1:], strict=True)):
+        seg_eval = None
+        if t_eval is not None:
+            sel = t_eval[(t_eval >= a) & (t_eval <= b)]
+            seg_eval = np.unique(np.concatenate([[a], sel, [b]]))
+        seg_opts = copy.copy(opts)
+        seg_opts.t_end = b
+        seg_built = copy.copy(built)
+        seg_built.y0 = np.asarray(y_start, float)
+        t, y, ok, msg, st = _integrate(seg_built, seg_opts, seg_eval, t0=a)
+        for key, v in st.items():
+            stats[key] = stats.get(key, 0) + v
+        if k > 0:
+            t, y = t[1:], y[1:]
+        ts.append(np.asarray(t))
+        ys.append(np.asarray(y))
+        y_start = ys[-1][-1]
+        if not ok:
+            break
+    t_all, y_all = np.concatenate(ts), np.concatenate(ys)
+    if t_eval is not None:
+        keep = np.isin(t_all, t_eval)
+        t_all, y_all = t_all[keep], y_all[keep]
+    stats["segments"] = len(ts)
+    return t_all, y_all, ok, msg, stats
 
 
 def _thin(t: np.ndarray, y: np.ndarray, max_points: int) -> tuple[np.ndarray, np.ndarray]:
@@ -147,7 +193,7 @@ def _diagnostics(mech: Mechanism, spec: ReactorSpec, C: np.ndarray, V: np.ndarra
     scale = max(float(np.max(np.abs(C))), 1e-300)
     d["min_concentration_relative"] = float(np.min(C) / scale)
     d["negative_concentrations"] = bool(np.min(C) < -1e-8 * scale)
-    if spec.kind == "batch":
+    if spec.kind == "batch" and not spec.fixed_species:
         species_ok = [bool(s.composition) for s in mech.species]
         if mech.elements and all(species_ok):
             E = mech.element_matrix()
@@ -167,6 +213,25 @@ def _diagnostics(mech: Mechanism, spec: ReactorSpec, C: np.ndarray, V: np.ndarra
     return d
 
 
+def _crossing_time(t: np.ndarray, y: np.ndarray, level: float, k: int) -> float:
+    """Time where y first falls to ``level`` (index k is the first point at/below it).
+
+    Uses a monotone cubic (PCHIP) interpolant through the neighbouring points, which is
+    far more accurate than linear interpolation on coarse adaptive output."""
+    if k == 0:
+        return float(t[0])
+    from scipy.interpolate import PchipInterpolator
+    from scipy.optimize import brentq
+
+    lo, hi = max(0, k - 3), min(len(t), k + 3)
+    tt, yy = t[lo:hi], y[lo:hi]
+    if len(tt) < 3 or np.any(np.diff(tt) <= 0):
+        f = (y[k - 1] - level) / (y[k - 1] - y[k])
+        return float(t[k - 1] + f * (t[k] - t[k - 1]))
+    p = PchipInterpolator(tt, yy)
+    return float(brentq(lambda x: float(p(x)) - level, t[k - 1], t[k], xtol=1e-14 * max(t[k], 1e-300)))
+
+
 def _metrics(mech: Mechanism, spec: ReactorSpec, t: np.ndarray, C: np.ndarray, T: np.ndarray,
              V: np.ndarray) -> dict:
     m: dict = {}
@@ -175,16 +240,11 @@ def _metrics(mech: Mechanism, spec: ReactorSpec, t: np.ndarray, C: np.ndarray, T
     half = {}
     for i, s in enumerate(mech.species):
         n0 = n[0, i]
-        if n0 > 0 and spec.kind == "batch":
+        if n0 > 0 and spec.kind == "batch" and s.name not in spec.fixed_species:
             conv[s.name] = float(1.0 - n[-1, i] / n0)
             below = np.nonzero(n[:, i] <= 0.5 * n0)[0]
             if below.size:
-                k = int(below[0])
-                if k > 0:  # linear interpolation for the crossing time
-                    f = (n[k - 1, i] - 0.5 * n0) / (n[k - 1, i] - n[k, i])
-                    half[s.name] = float(t[k - 1] + f * (t[k] - t[k - 1]))
-                else:
-                    half[s.name] = float(t[0])
+                half[s.name] = _crossing_time(t, n[:, i], 0.5 * n0, int(below[0]))
     m["conversion"] = conv
     m["half_life"] = half
     if spec.energy != "isothermal" and len(t) > 2:
@@ -209,7 +269,7 @@ def simulate(mech: Mechanism, spec: ReactorSpec, options: SimulationOptions,
         t_first = options.t_end * 1e-9
         t_eval = np.concatenate([[0.0], np.geomspace(t_first, options.t_end, options.max_points - 1)])
     try:
-        t, y, ok, msg, stats = _integrate(built, options, t_eval)
+        t, y, ok, msg, stats = _integrate_piecewise(built, options, t_eval)
     except (ValueError, RuntimeError, ArithmeticError) as e:
         raise SimulationError(f"Integration fehlgeschlagen: {e}") from None
     if len(t) == 0:

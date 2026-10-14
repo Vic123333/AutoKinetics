@@ -1,0 +1,32 @@
+description: Veresterung von Essigsäure mit Ethanol (Flüssigphase, Gleichgewichtsreaktion).
+references:
+- "M. Berthelot, L. Péan de Saint-Gilles, Ann. Chim. Phys. 65 (1862) 385 – Gleichgewichtskonstante K ≈ 4"
+- "Geschwindigkeitskonstante: illustrativer Wert für säurekatalysierte Veresterung"
+units: {length: dm, quantity: mol, activation-energy: kJ/mol}
+phases:
+- name: liquid
+  thermo: liquid
+  species: [CH3COOH, C2H5OH, CH3COOC2H5, H2O]
+species:
+- {name: CH3COOH, composition: {C: 2, H: 4, O: 2}}
+- {name: C2H5OH, composition: {C: 2, H: 6, O: 1}}
+- {name: CH3COOC2H5, composition: {C: 4, H: 8, O: 2}}
+- {name: H2O, composition: {H: 2, O: 1}}
+reactions:
+- equation: CH3COOH + C2H5OH <=> CH3COOC2H5 + H2O
+  rate-constant: {A: 2.0e-4, b: 0.0, Ea: 0.0}
+  equilibrium-constant: {K: 4.0, T-ref: 298.15, delta-H: 0.0}
+autokinetics:
+  title: Veresterung (K = 4)
+  category: Flüssigphase
+  parameter_quality: mixed
+  summary: >-
+    Bei äquimolarem Einsatz stellt sich ein Umsatz von 2/3 ein (K = 4, Berthelot & Saint-Gilles).
+    Überschuss an Ethanol verschiebt das Gleichgewicht (Prinzip von Le Chatelier).
+  reactor: {kind: batch, constraint: volume, energy: isothermal, T: 298.15, basis: concentration,
+            concentration_unit: mol/L, composition: {CH3COOH: 1.0, C2H5OH: 1.0}}
+  simulation: {t_end: 200000, rtol: 1e-8}
+  plot: {species: [CH3COOH, CH3COOC2H5]}
+  expected:
+  - {quantity: conversion, species: CH3COOH, value: 0.666667, unit: "-", tolerance: 0.001,
+     note: "Gleichgewichtsumsatz x = 2/3 für K = 4 und äquimolaren Einsatz"}

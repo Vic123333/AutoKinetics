@@ -1,0 +1,26 @@
+description: Robertson-Problem – der Standard-Testfall für steife chemische Kinetik.
+references:
+- "H. H. Robertson: The solution of a set of reaction rate equations, in: Numerical Analysis, Academic Press (1966) 178–182"
+- "E. Hairer, G. Wanner: Solving Ordinary Differential Equations II, Springer (1996)"
+units: {length: dm, quantity: mol, activation-energy: kJ/mol}
+phases:
+- {name: liquid, thermo: liquid, species: [A, B, C]}
+species:
+- {name: A}
+- {name: B}
+- {name: C}
+reactions:
+- {equation: A => B, rate-constant: {A: 0.04, b: 0, Ea: 0}}
+- {equation: 2 B => B + C, rate-constant: {A: 3.0e7, b: 0, Ea: 0}}
+- {equation: B + C => A + C, rate-constant: {A: 1.0e4, b: 0, Ea: 0}}
+autokinetics:
+  title: Robertson (steifer Benchmark)
+  category: Numerik-Benchmark
+  parameter_quality: literature
+  summary: >-
+    Eigenwerte der Jacobi-Matrix über ~10 Größenordnungen. Explizite Verfahren scheitern an der
+    Stabilitätsgrenze; A-/L-stabile Verfahren (BDF, Radau, Rosenbrock) lösen es effizient.
+  reactor: {kind: batch, energy: isothermal, T: 298.15, basis: concentration, concentration_unit: mol/L,
+            composition: {A: 1.0}}
+  simulation: {t_end: 1.0e5, rtol: 1e-8, log_time: true}
+  plot: {species: [A, B, C], log_time: true, log_y: true}

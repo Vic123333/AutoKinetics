@@ -1,0 +1,27 @@
+description: Exotherme Flüssigphasenreaktion im gekühlten Rührkessel – thermisches Durchgehen (Semenov).
+references:
+- "N. N. Semenov, Z. Phys. 48 (1928) 571 – Theorie der Wärmeexplosion"
+- "Parameter illustrativ: ΔH_R = −100 kJ/mol, Ea = 80 kJ/mol, c₀ = 4 mol/L, ρc_p = 4 MJ/(m³K)"
+units: {length: dm, quantity: mol, activation-energy: kJ/mol}
+phases:
+- {name: liquid, thermo: liquid, species: [A, B]}
+species:
+- {name: A}
+- {name: B}
+reactions:
+- equation: A => B
+  rate-constant: {A: 8.69187e8, b: 0, Ea: 80.0}
+  reaction-enthalpy: -100.0
+  note: k(350 K) = 1e-3 1/s
+autokinetics:
+  title: Thermisches Durchgehen (Semenov)
+  category: Reaktionstechnik / Sicherheit
+  parameter_quality: illustrative
+  summary: >-
+    Adiabatische Temperaturerhöhung ΔT_ad = c₀(−ΔH_R)/(ρc_p) = 100 K. Mit UA/V = 1e4 W/(m³K) und
+    Kühlmitteltemperatur 340 K geht der Reaktor durch (T_max ≈ 409 K); ab UA/V ≈ 3e4 W/(m³K) bleibt
+    er beherrschbar (T_max ≈ 348 K) – Semenov-Kriterium: Wärmeerzeugung vs. Wärmeabfuhr.
+  reactor: {kind: batch, energy: heat-exchange, T: 340, T_env: 340, UA_V: 1.0e4, rho_cp: 4.0e6,
+            basis: concentration, concentration_unit: mol/L, composition: {A: 4.0}}
+  simulation: {t_end: 20000, rtol: 1e-8}
+  plot: {species: [A, B], show_T: true}

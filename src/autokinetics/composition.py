@@ -30,7 +30,9 @@ ATOMIC_WEIGHTS: dict[str, float] = {
 }
 
 _TOKEN = re.compile(r"([A-Z][a-z]?)(\d+(?:\.\d+)?)?|(\()|(\))(\d+(?:\.\d+)?)?")
-_CHARGE = re.compile(r"(?:\^?(\d*)([+-])|([+-]+))$")
+# Charges: "SO4^2-" (caret form), "SO4-2" (sign then digits), "Fe+++"/"NH4+" (sign runs).
+# Digits directly before a sign without a caret are atom counts (NH4+ is NH4 with charge +1).
+_CHARGE = re.compile(r"(?:\^(\d*)([+-])|([+-]+))$")
 
 
 def _parse_group(formula: str) -> dict[str, float]:

@@ -1,0 +1,27 @@
+description: Folgereaktion A → B → C (Bateman-Lösung, Ausbeuteoptimierung des Zwischenprodukts).
+references:
+- "Lehrbuchbeispiel; analytische Lösung nach H. Bateman (1910)"
+units: {length: dm, quantity: mol, activation-energy: kJ/mol}
+phases:
+- {name: liquid, thermo: liquid, species: [A, B, C]}
+species:
+- {name: A}
+- {name: B}
+- {name: C}
+reactions:
+- {equation: A => B, rate-constant: {A: 1.0e-3, b: 0, Ea: 0}}
+- {equation: B => C, rate-constant: {A: 5.0e-4, b: 0, Ea: 0}}
+autokinetics:
+  title: Folgereaktion A → B → C
+  category: Reaktionstechnik
+  parameter_quality: illustrative
+  summary: >-
+    Das Zwischenprodukt B erreicht sein Maximum bei t = ln(k₁/k₂)/(k₁−k₂) = 1386 s mit
+    c_B,max = c_A,0 (k₁/k₂)^(k₂/(k₂−k₁)) = 0.5 mol/L.
+  reactor: {kind: batch, energy: isothermal, T: 298.15, basis: concentration, concentration_unit: mol/L,
+            composition: {A: 1.0}}
+  simulation: {t_end: 10000, rtol: 1e-9}
+  plot: {species: [A, B, C]}
+  expected:
+  - {quantity: max_time, species: B, value: 1386.294, unit: s, tolerance: 0.002}
+  - {quantity: max_value, species: B, value: 0.5, unit: mol/L, tolerance: 0.001}

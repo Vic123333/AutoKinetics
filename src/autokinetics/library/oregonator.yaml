@@ -1,0 +1,31 @@
+description: Oregonator – Modell der oszillierenden Belousov-Zhabotinsky-Reaktion.
+references:
+- "R. J. Field, R. M. Noyes, J. Chem. Phys. 60 (1974) 1877 – Oregonator mit k1 = 1.34, k2 = 1.6e9, k3 = 8.0e3, k4 = 4.0e7, k5 = 1.0 (L/(mol·s)), f = 1"
+units: {length: dm, quantity: mol, activation-energy: kJ/mol}
+phases:
+- {name: liquid, thermo: liquid, species: [BrO3-, BrMA, HBrO2, Br-, Ce4+, HOBr]}
+species:
+- {name: BrO3-, note: "A (gepuffert)"}
+- {name: BrMA, note: "B: organisches Substrat (gepuffert)"}
+- {name: HBrO2, note: X}
+- {name: Br-, note: Y}
+- {name: Ce4+, note: Z}
+- {name: HOBr, note: P}
+reactions:
+- {equation: BrO3- + Br- => HBrO2 + HOBr, rate-constant: {A: 1.34, b: 0, Ea: 0}}
+- {equation: HBrO2 + Br- => 2 HOBr, rate-constant: {A: 1.6e9, b: 0, Ea: 0}}
+- {equation: BrO3- + HBrO2 => 2 HBrO2 + 2 Ce4+, rate-constant: {A: 8.0e3, b: 0, Ea: 0}}
+- {equation: 2 HBrO2 => BrO3- + HOBr, rate-constant: {A: 4.0e7, b: 0, Ea: 0}}
+- {equation: BrMA + Ce4+ => 0.5 Br-, rate-constant: {A: 1.0, b: 0, Ea: 0}}
+autokinetics:
+  title: Oregonator (BZ-Oszillator)
+  category: Nichtlineare Dynamik
+  parameter_quality: literature
+  summary: >-
+    Steifes System mit Relaxationsoszillationen (Grenzzyklus). [BrO₃⁻] und [BrMA] sind gepuffert.
+    Ein klassischer Testfall für steife Löser – explizite Verfahren benötigen hier winzige Schritte.
+  reactor: {kind: batch, energy: isothermal, T: 298.15, basis: concentration, concentration_unit: mol/L,
+            composition: {BrO3-: 0.06, BrMA: 0.02, HBrO2: 1.0e-9, Br-: 1.0e-6, Ce4+: 1.0e-6},
+            fixed_species: [BrO3-, BrMA]}
+  simulation: {t_end: 1000, rtol: 1e-8}
+  plot: {species: [HBrO2, Br-, Ce4+], log_y: true}
