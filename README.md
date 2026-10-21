@@ -2,6 +2,8 @@
 
 **Chemische Reaktionen im Browser simulieren – von der Esterverseifung im Praktikum bis zur Methan-Zündung mit 325 Elementarreaktionen.**
 
+> **English summary:** AutoKinetics is a browser-based chemical kinetics simulator with a C++ numerical core (Cython bindings), a FastAPI backend and a React/TypeScript frontend. It reads Cantera-compatible YAML mechanisms (including GRI-Mech 3.0), simulates zero-dimensional reactors (batch, CSTR), and automatically analyses stiffness, stability and convergence to recommend a suitable ODE solver. Results are validated against Cantera (ignition delay times within 0.2 %, adiabatic flame temperature of methane/air 2225.5 K vs. ≈ 2226 K in the literature), against analytical solutions and via conservation laws. The user interface and documentation are in German.
+
 Reaktionen eintippen, Startbedingungen wählen, auf *Simulieren* klicken: AutoKinetics rechnet aus, wie sich Konzentrationen, Temperatur und Druck über die Zeit entwickeln – und erklärt dabei, *warum* es so rechnet, wie es rechnet.
 
 ![Methan/Luft-Zündung mit GRI-Mech 3.0 – Radikale wie H, O, OH und HO₂ bauen sich über Millisekunden auf, bis das Gemisch zündet](docs/screenshots/ignition-species.png)
@@ -58,13 +60,26 @@ Chemische Systeme sind oft *steif*: Manche Reaktionen laufen in Nanosekunden, an
 
 ## Stimmen die Ergebnisse?
 
-Jede Version wird automatisch gegen die Realität geprüft – unter anderem:
+Der Anspruch dieses Projekts ist nicht nur, dass die Simulationen laufen, sondern dass sie *stimmen*. Deshalb wird jede Version automatisch gegen unabhängige Referenzen geprüft:
 
 - **Vergleich mit Cantera**, dem Standardwerkzeug der Verbrennungsforschung: Reaktionsraten stimmen bis auf 10⁻¹⁰, Zündverzugszeiten auf 0,2 % überein.
 - **Adiabatische Flammentemperatur** von Methan/Luft: 2225,5 K (Literatur ≈ 2226 K).
 - **Analytische Lösungen** (1. und 2. Ordnung, Folgereaktionen, Rührkessel) werden auf 7 Stellen genau getroffen.
 - **Erhaltungssätze:** Atome, Masse und Energie bleiben erhalten.
 - **Thermodynamik:** Jede Simulation läuft langfristig genau ins chemische Gleichgewicht; K_p von N₂O₄ ⇌ 2 NO₂ ≈ 0,15 wie im Lehrbuch.
+
+Die zugehörigen Tests liegen unter `tests/` und lassen sich mit `pytest -m "not network"` selbst ausführen (siehe unten).
+
+---
+
+## Grenzen
+
+Damit klar ist, was AutoKinetics (noch) nicht leistet:
+
+- **Nulldimensionale Reaktoren:** Es werden räumlich homogene Reaktoren (Batch, Rührkessel) simuliert. Diffusion, Strömung und ortsaufgelöste Flammen (z. B. 1D-Flammen) sind nicht enthalten.
+- **Validierung exemplarisch:** Der Abgleich mit Cantera und der Literatur gilt für die genannten Fälle (u. a. Methan/Luft mit GRI-Mech 3.0, H₂/O₂). Für beliebige eigene Mechanismen ist die Qualität der Ergebnisse nur so gut wie der Mechanismus selbst.
+- **Lokaler Einsatz:** Das Tool ist für Lehre, Experimente und Analyse auf dem eigenen Rechner gedacht, nicht als gehärteter Mehrbenutzer-Dienst.
+- **Online-Datenquellen:** PubChem- und NIST-Abfragen brauchen eine Internetverbindung; offline steht die mitgelieferte NASA-Thermodatenbank zur Verfügung.
 
 ---
 
@@ -128,6 +143,10 @@ cd frontend && npx vitest run && npx playwright test
 **Konfiguration** über Umgebungsvariablen: `AUTOKINETICS_WORKERS` (Rechenprozesse), `AUTOKINETICS_MAX_WALL_TIME` (Zeitlimit pro Job in s), `AUTOKINETICS_OFFLINE=1` (keine Online-Abfragen), `AUTOKINETICS_CACHE_DIR`.
 
 </details>
+
+## Entstehung
+
+AutoKinetics ist ein Projekt von Victor Jaenisch. Eine erste Version (Parser, Ratengleichungen, C++-Löser) entstand 2025; die hier vorliegende Version 2 (Oktober 2026) ist ein Neuaufbau, der mit Unterstützung von KI-Werkzeugen (Claude) entwickelt wurde. Fachliche Entscheidungen, Auswahl der Referenzen und die Validierung der Ergebnisse liegen beim Autor.
 
 ## Quellen & Lizenz
 
